@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>YY.Base</id>
+    <version>$version$</version>
+    <title>YY.Base</title>
+    <authors>YY</authors>
+    <owners>初雨团队</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <projectUrl>https://github.com/Chuyu-Team/YY.Base/</projectUrl>
+    <summary>包含线程池、协程支持、智能指针、String等轻量级基础函数库。</summary>
+    <description>包含线程池、协程支持、智能指针、String等轻量级基础函数库。</description>
+    <releaseNotes>$releaseNotes$</releaseNotes>
+    <copyright>Copyright Chuyu</copyright>
+    <tags>Chuyu YY-Thunks native nativepackage</tags>
+    <repository type="git" url="https://github.com/Chuyu-Team/YY.Base.git" branch="master" commit="$commit$" />
+    <dependencies>
+      <dependency id="YY.NuGet.Import.Helper" version="1.0.1" />
+    </dependencies>
+    <contentFiles>
+      <files include="any\any\YY.Base.txt" buildAction="Content" copyToOutput="false"/>
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="..\src\**" target="build\native\src"/>
+    <file src="..\include\**" target="build\native\include"/>
+    <file src=".\YY.Base.*" target="build\native"/>
+    <file src=".\content.txt" target="contentFiles\any\any\YY.Base.txt"/>
+    <file src=".\content.txt" target="Content\NuGet\YY.Base.txt"/>
+  </files>
+</package>
