@@ -1,0 +1,187 @@
+﻿name: Build&Test
+
+on: [push, pull_request]
+
+jobs:
+  Build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+  
+    - name: 恢复编译产物
+      id: BinCache
+      uses: actions/cache@v4
+      with:
+        path: |
+            **/UnitTest.dll
+            TestResults/*.trx
+        key: BinCache_${{github.sha}}
+
+    - name: 初始化
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: |
+          mkdir -p Bin
+          
+          $ProgramFiles = ${env:ProgramFiles(x86)}
+
+          if (-not $ProgramFiles)
+          {
+              $ProgramFiles = $env:ProgramFiles
+          }
+          
+          $BuiltInVsWhereExe = "$ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe"
+
+          if (-not (Test-Path $BuiltInVsWhereExe))
+          {
+              throw "找不到vswhere.exe！"
+          }
+          
+          Write-Output $BuiltInVsWhereExe
+          
+          $LatestVisualStudioRoot = & $BuiltInVsWhereExe -latest -prerelease -property installationPath
+          
+          if (-not (Test-Path $LatestVisualStudioRoot))
+          {
+              throw "找不到 VisualStudioRoot！"
+          }
+          
+          echo "LatestVisualStudioRoot=$LatestVisualStudioRoot" >> $env:GITHUB_ENV
+          
+          $MSBuildBinPath="$LatestVisualStudioRoot\MSBuild\Current\Bin"
+          
+          if (-not (Test-Path $MSBuildBinPath))
+          {
+              $installationVersion = & $BuiltInVsWhereExe -latest -prerelease -property installationVersion
+              $majorVersion = "$installationVersion".Split('.')[0]
+              
+              $MSBuildBinPath="$LatestVisualStudioRoot\MSBuild\$majorVersion.0\Bin"
+          }
+          
+          if (-not (Test-Path $MSBuildBinPath))
+          {
+              throw "找不到 MSBuildBinPath！"
+          }
+          
+          echo "MSBuildBinPath=$MSBuildBinPath" >> $env:GITHUB_ENV
+          
+          if($env:GITHUB_REF.StartsWith("refs/tags/v", "CurrentCultureIgnoreCase"))
+          {
+              $BuildVersion = $env:GITHUB_REF.Remove(0, 11);
+              echo "BuildVersion=$BuildVersion" >> $env:GITHUB_ENV
+              
+              $Prerelease = $BuildVersion.contains("-");
+              echo "Prerelease=$Prerelease" >> $env:GITHUB_ENV
+
+              # github的内置版本有Bug，此行必须添加，否则无法获得内容
+              git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+
+              $releaseNotes = & git tag -l --format='%(contents)' $env:GITHUB_REF.Remove(0, 10)
+              echo " -p `"releaseNotes=$releaseNotes`"" | out-file NuGet\metadata.txt
+              echo " -p version=$BuildVersion" | out-file NuGet\metadata.txt -Append
+          }
+          else
+          {
+              $BuildVersion = "100.0.0-Alpha"
+              $releaseNotes = "CI Build"
+              echo " -p `"releaseNotes=$releaseNotes`"" | out-file NuGet\metadata.txt
+              echo " -p version=$BuildVersion" | out-file NuGet\metadata.txt -Append
+          }
+
+          echo " -p commit=$env:GITHUB_SHA" | out-file NuGet\metadata.txt -Append
+
+    - name: 执行单元测试
+      if: steps.BinCache.outputs.cache-hit != 'true'
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: pwsh
+      run: |
+          # Procdump工具，用于单元测试崩溃诊断
+          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip  -OutFile Bin\Procdump.zip
+          &7z e Bin\Procdump.zip "-o$Env:GITHUB_WORKSPACE\Bin"
+          
+          # MSBuild、PROCDUMP_PATH目录更新到 Path
+          $Env:Path="$Env:GITHUB_WORKSPACE\Bin;${{env.MSBuildBinPath}};${{env.LatestVisualStudioRoot}}\Common7\IDE\CommonExtensions\Microsoft\TestWindow;" + $Env:Path
+          
+          # 编译单元测试项目
+          &msbuild UnitTest\UnitTest.vcxproj "-p:Configuration=Release;Platform=Win32;SolutionDir=$Env:GITHUB_WORKSPACE\\"
+          if($lastexitcode -ne 0)
+          {
+              throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
+          }
+           
+          &msbuild UnitTest\UnitTest.vcxproj "-p:Configuration=Release;Platform=x64;SolutionDir=$Env:GITHUB_WORKSPACE\\"
+          if($lastexitcode -ne 0)
+          {
+              throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
+          }
+          
+          $RunFaild = 0
+
+          &vstest.console Release\UnitTest.dll "/logger:trx;LogFileName=UnitTestWin32.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full" "/Diag:TestResults\Win32.log"
+          if($lastexitcode -ne 0)
+          {
+              $RunFaild = 1
+          }
+          
+          &vstest.console x64\Release\UnitTest.dll "/logger:trx;LogFileName=UnitTestWin64.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full" "/Diag:TestResults\Win64.log"
+          if($lastexitcode -ne 0)
+          {
+              $RunFaild = 1
+          }
+
+          if($RunFaild -ne 0)
+          {
+              throw "单元测试失败！"
+          }
+    - uses: dorny/test-reporter@v1
+      if: contains(fromJSON('["push", "create"]'), github.event_name) && (success() || failure())
+      with:
+        name: 单元测试报告
+        path: TestResults/*.trx
+        reporter: dotnet-trx
+        
+    - name: 文件打包
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: cmd
+      run: |
+          ::打包Nuget
+          nuget pack NuGet\YY.Base.nuspec -p "Channel=CI" "@.\NuGet\metadata.txt"
+                    
+    - uses: actions/upload-artifact@v4
+      with:
+        path: |
+            *.nupkg
+
+    # 失败时我们收集一些信息，用于诊断
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: ErrorLog
+        path: |
+            TestResults\**\*.*
+            Release\UnitTest.dll
+            Release\UnitTest.pdb
+            Release\*.log
+            x64\Release\UnitTest.dll
+            x64\Release\UnitTest.pdb
+            x64\Release\*.log
+            NuGet\metadata.txt
+
+    - uses: xresloader/upload-to-github-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        file: "YY.Base.*.nupkg"
+        overwrite: true
+        tags: true
+        draft: false
+        prerelease: ${{env.Prerelease}}
+
+    - name: 内容发布
+      if: contains(github.ref, 'tags/')
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: cmd
+      run: |
+         :: 把生成的nuget包发布到nuget中
+         nuget push YY.Base.${{env.BuildVersion}}.nupkg -ApiKey ${{ secrets.NUGET_TOKEN }} -Source https://api.nuget.org/v3/index.json
+
