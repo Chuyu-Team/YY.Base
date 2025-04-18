@@ -345,6 +345,10 @@ namespace YY
 
             void __YYAPI ThreadTaskRunnerImpl::operator()()
             {
+#if defined(_WIN32)
+                // uThreadId设置前，保证消息队列被创建。避免 PostAppMessageW 没有消息队列而失败。
+                GetQueueStatus(QS_ALLINPUT);
+#endif
                 uThreadId = GetCurrentThreadId();
                 Sync::WakeByAddressAll(const_cast<uint32_t*>(&uThreadId));
                 g_pTaskRunnerWeak = this;
