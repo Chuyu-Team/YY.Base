@@ -21,31 +21,60 @@ namespace YY
             };
 
             template<typename _Type>
+            static _Ret_maybenull_ YY::WeakPtrRef<_Type>* __YYAPI GetWeakPtrRef(_In_opt_ _Type* _pWeakRefPtr) noexcept
+            {
+                if (!_pWeakRefPtr)
+                {
+                    return nullptr;
+                }
+
+                _pWeakRefPtr->AddWeakRef();
+                return reinterpret_cast<YY::WeakPtrRef<_Type>*>(_pWeakRefPtr);
+            }
+
+            template<typename _Type>
+            static YY::RefPtr<_Type> __YYAPI FromWeakPtr(_In_opt_ YY::WeakPtrRef<_Type>* _pWeakRefPtr) noexcept
+            {
+                auto _pPtr = reinterpret_cast<_Type*>(_pWeakRefPtr);
+                if (_pPtr == nullptr || _pPtr->TryAddRef() == false)
+                {
+                    return nullptr;
+                }
+
+                return YY::RefPtr<_Type>::FromPtr(_pPtr);
+            }
+
+            template<typename _Type>
+            static void __YYAPI FreeWeakPtrRef(_In_opt_ YY::WeakPtrRef<_Type>* _pWeakRefPtr) noexcept
+            {
+                auto _pPtr = reinterpret_cast<_Type*>(_pWeakRefPtr);
+                if (_pPtr)
+                {
+                    _pPtr->ReleaseWeak();
+                }
+            }
+
+            template<typename _Type>
             class WeakPtr
             {
             private:
-                _Type* p;
+                WeakPtrRef<_Type>* p = nullptr;
 
             public:
-                constexpr WeakPtr() noexcept
-                    : p(nullptr)
-                {
-                }
+                constexpr WeakPtr() noexcept = default;
 
                 WeakPtr(_In_opt_ _Type* _pOther) noexcept
-                    : p(_pOther)
+                    : p(GetWeakPtrRef(_pOther))
                 {
-                    if (p)
-                        p->AddWeakRef();
                 }
 
                 constexpr WeakPtr(_In_opt_ WeakPtrRef<_Type>* _pOther) noexcept
-                    : p(reinterpret_cast<_Type*>(_pOther))
+                    : p(_pOther)
                 {
                 }
 
                 WeakPtr(_In_ const WeakPtr& _pOther) noexcept
-                    : WeakPtr(_pOther.p)
+                    : p(GetWeakPtrRef(reinterpret_cast<_Type*>(_pOther.p)))
                 {
                 }
 
@@ -57,83 +86,74 @@ namespace YY
 
                 ~WeakPtr()
                 {
-                    if (p)
-                        p->ReleaseWeak();
+                    FreeWeakPtrRef(p);
                 }
 
                 inline void __YYAPI Attach(_In_opt_ WeakPtrRef<_Type>* _pOther) noexcept
                 {
-                    if (p)
-                        p->ReleaseWeak();
-                    p = reinterpret_cast<_Type*>(_pOther);
+                    FreeWeakPtrRef(p);
+                    p = _pOther;
                 }
 
                 inline _Ret_maybenull_ WeakPtrRef<_Type>* __YYAPI Detach() noexcept
                 {
                     auto _p = p;
                     p = nullptr;
-                    return reinterpret_cast<WeakPtrRef<_Type>*>(_p);
+                    return _p;
                 }
 
                 _Ret_maybenull_ RefPtr<_Type> __YYAPI Get() const noexcept
                 {
-                    RefPtr<_Type> _pTmp;
-
-                    if (p && p->TryAddRef())
-                    {
-                        _pTmp.Attach(p);
-                    }
-                    return _pTmp;
+                    return FromWeakPtr(p);
                 }
 
-                bool operator==(_In_opt_ _Type* _pOther) const noexcept
+                bool __YYAPI operator==(_In_opt_ _Type* _pOther) const noexcept
                 {
-                    return p == _pOther;
+                    return reinterpret_cast<void*>(p) == reinterpret_cast<void*>(_pOther);
                 }
 
-                bool operator==(_In_opt_ const WeakPtr& _pOther) const noexcept
+                bool __YYAPI operator==(_In_opt_ const WeakPtr& _pOther) const noexcept
                 {
                     return p == _pOther.p;
                 }
 
-                WeakPtr& operator=(std::nullptr_t) noexcept
+                bool __YYAPI operator!=(_In_opt_ _Type* _pOther) const noexcept
                 {
-                    if (p)
-                        p->ReleaseWeak();
+                    return reinterpret_cast<void*>(p) != reinterpret_cast<void*>(_pOther);
+                }
 
+                bool __YYAPI operator!=(_In_opt_ const WeakPtr& _pOther) const noexcept
+                {
+                    return p != _pOther.p;
+                }
+
+                WeakPtr& __YYAPI operator=(std::nullptr_t) noexcept
+                {
+                    FreeWeakPtrRef(p);
                     p = nullptr;
                     return *this;
                 }
 
-                WeakPtr& operator=(_In_opt_ _Type* _pOther) noexcept
+                WeakPtr& __YYAPI operator=(_In_opt_ _Type* _pOther) noexcept
                 {
-                    if (p != _pOther)
+                    if (reinterpret_cast<void*>(p) != reinterpret_cast<void*>(_pOther))
                     {
-                        if (p)
-                            p->ReleaseWeak();
-
-                        p = _pOther;
-
-                        if (p)
-                            p->AddWeakRef();
+                        FreeWeakPtrRef(p);
+                        p = GetWeakPtrRef(_pOther);
                     }
                     return *this;
                 }
 
-                WeakPtr& operator=(const WeakPtr& _pOther) noexcept
+                WeakPtr& __YYAPI operator=(const WeakPtr& _pOther) noexcept
                 {
                     return this->operator=(_pOther.p);
                 }
 
-                WeakPtr& operator=(const WeakPtr&& _pOther) noexcept
+                WeakPtr& __YYAPI operator=(WeakPtr&& _pOther) noexcept
                 {
-                    if (&_pOther != this)
+                    if (p != _pOther.p)
                     {
-                        if (p)
-                            p->ReleaseWeak();
-
-                        p = _pOther.p;
-                        _pOther.p = nullptr;
+                        Attach(_pOther.Detach());
                     }
 
                     return *this;
