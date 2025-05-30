@@ -194,3 +194,5 @@ namespace YY
 
     using namespace YY::Base::Memory;
 } // namespace YY
+
+#pragma pack(pop)
