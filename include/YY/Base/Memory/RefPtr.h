@@ -102,13 +102,10 @@ namespace YY
             class RefPtr
             {
             private:
-                _Type* p;
+                _Type* p = nullptr;
 
             public:
-                RefPtr() noexcept
-                    : p(nullptr)
-                {
-                }
+                constexpr RefPtr() noexcept = default;
 
                 RefPtr(_Type* _pOther) noexcept
                     : p(_pOther)
