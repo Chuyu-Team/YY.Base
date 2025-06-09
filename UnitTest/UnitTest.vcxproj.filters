@@ -132,6 +132,9 @@
     <ClCompile Include="TaskRunnerUnitTest.cpp">
       <Filter>单元测试</Filter>
     </ClCompile>
+    <ClCompile Include="ObserverPtrUnitTest.cpp">
+      <Filter>单元测试</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\YY\Base\Containers\Array.h">
@@ -295,6 +298,9 @@
     </ClInclude>
     <ClInclude Include="..\src\YY\Base\Threading\ThreadPool.Windows.h">
       <Filter>源文件\YY\Base\Threading\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\YY\Base\Memory\ObserverPtr.h">
+      <Filter>头文件\YY\Base\Memory</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
