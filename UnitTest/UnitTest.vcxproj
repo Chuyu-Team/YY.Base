@@ -186,6 +186,7 @@
     <ClCompile Include="AsyncFileUnitTest.cpp" />
     <ClCompile Include="BitMapUnitTest.cpp" />
     <ClCompile Include="DynamicArrayUnitTest.cpp" />
+    <ClCompile Include="ObserverPtrUnitTest.cpp" />
     <ClCompile Include="StringUnitTest.cpp" />
     <ClCompile Include="TaskRunnerUnitTest.cpp" />
   </ItemGroup>
@@ -203,6 +204,7 @@
     <ClInclude Include="..\include\YY\Base\Exception.h" />
     <ClInclude Include="..\include\YY\Base\IO\File.h" />
     <ClInclude Include="..\include\YY\Base\Memory\Alloc.h" />
+    <ClInclude Include="..\include\YY\Base\Memory\ObserverPtr.h" />
     <ClInclude Include="..\include\YY\Base\Memory\RefPtr.h" />
     <ClInclude Include="..\include\YY\Base\Memory\UniquePtr.h" />
     <ClInclude Include="..\include\YY\Base\Memory\WeakPtr.h" />
