@@ -265,6 +265,7 @@ namespace TaskRunnerUnitTest
 
         TEST_METHOD(Wait句柄测试)
         {
+            HANDLE _hWaitEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
             auto _pTaskRunner = SequencedTaskRunner::Create();
 
             for (int i = 0; i < 3; ++i)
@@ -284,10 +285,10 @@ namespace TaskRunnerUnitTest
                         return true;
                     });
 
-                Sleep(600);
+                WaitForSingleObject(_hWaitEvent, 600);
                 SetEvent(_hEvent);
                 auto _uTickCountEnd = GetTickCount64();
-                Sleep(10);
+                WaitForSingleObject(_hWaitEvent, 10);
 
                 Strings::uString _szTmp;
                 auto _uTickCount2 = _uTickCount;
@@ -318,7 +319,7 @@ namespace TaskRunnerUnitTest
                         });
                 }
 
-                Sleep(1000);
+                WaitForSingleObject(_hWaitEvent, 1000);
                 Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(0));
 
                 for (auto _hEvent : _hEvents)
@@ -326,7 +327,7 @@ namespace TaskRunnerUnitTest
                     SetEvent(_hEvent);
                 }
 
-                Sleep(1000);
+                WaitForSingleObject(_hWaitEvent, 1000);
                 Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents)));
 
                 for (auto _hEvent : _hEvents)
@@ -334,7 +335,7 @@ namespace TaskRunnerUnitTest
                     SetEvent(_hEvent);
                 }
 
-                Sleep(1000);
+                WaitForSingleObject(_hWaitEvent, 1000);
                 Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents) * 2));
 
                 //for (auto _hEvent : _hEvents)
@@ -342,6 +343,8 @@ namespace TaskRunnerUnitTest
                 //    CloseHandle(_hEvent);
                 //}
             }
+
+            CloseHandle(_hWaitEvent);
         }
 
         TEST_METHOD(Wait句柄超时测试)
@@ -728,6 +731,7 @@ namespace TaskRunnerUnitTest
 
         TEST_METHOD(Wait句柄测试)
         {
+            HANDLE _hWaitEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
             RefPtr<ThreadTaskRunner> _pTaskRunners[] = { ThreadTaskRunner::Create(false), ThreadTaskRunner::Create(true) };
             for (auto& _pTaskRunner : _pTaskRunners)
             {
@@ -748,10 +752,10 @@ namespace TaskRunnerUnitTest
                             return true;
                         });
 
-                    Sleep(600);
+                    WaitForSingleObject(_hWaitEvent, 600);
                     SetEvent(_hEvent);
                     auto _uTickCountEnd = GetTickCount64();
-                    Sleep(10);
+                    WaitForSingleObject(_hWaitEvent, 10);
 
                     Assert::IsTrue(abs((long long)(_uTickCountEnd - _uTickCount)) < 50);
                 }
@@ -776,7 +780,7 @@ namespace TaskRunnerUnitTest
                             });
                     }
 
-                    Sleep(100);
+                    WaitForSingleObject(_hWaitEvent, 100);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(0));
 
                     for (auto _hEvent : _hEvents)
@@ -784,7 +788,7 @@ namespace TaskRunnerUnitTest
                         SetEvent(_hEvent);
                     }
 
-                    Sleep(100);
+                    WaitForSingleObject(_hWaitEvent, 100);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents)));
 
                     for (auto _hEvent : _hEvents)
@@ -792,7 +796,7 @@ namespace TaskRunnerUnitTest
                         SetEvent(_hEvent);
                     }
 
-                    Sleep(100);
+                    WaitForSingleObject(_hWaitEvent, 100);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents) * 2));
 
                     /*for (auto _hEvent : _hEvents)
@@ -801,6 +805,8 @@ namespace TaskRunnerUnitTest
                     }*/
                 }
             }
+
+            CloseHandle(_hWaitEvent);
         }
 
         TEST_METHOD(Wait句柄超时测试)
