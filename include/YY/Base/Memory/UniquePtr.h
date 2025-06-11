@@ -28,16 +28,16 @@ namespace YY
             class UniquePtr
             {
             private:
-                _Type* p;
+                _Type* p = nullptr;
 
             public:
-                constexpr UniquePtr()
-                    : p(nullptr)
-                {
-                }
+                UniquePtr(const UniquePtr& _pOther) = delete;
+                UniquePtr& __YYAPI operator=(_In_opt_ const UniquePtr& _pOther) = delete;
+
+                constexpr UniquePtr() = default;
 
                 // 此构造不安全，因此刻意explicit
-                explicit UniquePtr(_Type* _pOther) noexcept
+                explicit constexpr UniquePtr(_Type* _pOther) noexcept
                     : p(_pOther)
                 {
                 }
@@ -49,23 +49,34 @@ namespace YY
 
                 ~UniquePtr()
                 {
-                    if (p)
-                        Delete(p);
+                    Reset();
                 }
 
-                _Ret_maybenull_ _Type* __YYAPI Get() const
+                template<typename... Args>
+                static UniquePtr __YYAPI Create(Args&&... _args) noexcept
+                {
+                    return UniquePtr(new _Type(std::forward<Args>(_args)...));
+                }
+
+                _Ret_maybenull_ _Type* __YYAPI Get() const noexcept
                 {
                     return p;
                 }
 
-                inline void __YYAPI Attach(_In_opt_ _Type* _pOther)
+                void __YYAPI Reset(_In_opt_ _Type* _pOther = nullptr) noexcept
                 {
                     if (p)
-                        Delete(p);
+                        delete p;
+
                     p = _pOther;
                 }
 
-                inline _Ret_maybenull_ _Type* __YYAPI Detach()
+                inline void __YYAPI Attach(_In_opt_ _Type* _pOther) noexcept
+                {
+                    Reset(_pOther);
+                }
+
+                inline _Ret_maybenull_ _Type* __YYAPI Detach() noexcept
                 {
                     auto _p = p;
                     p = nullptr;
@@ -74,25 +85,28 @@ namespace YY
 
                 inline _Ret_notnull_ _Type** __YYAPI ReleaseAndGetAddressOf() noexcept
                 {
-                    Attach(nullptr);
+                    Reset();
                     return &p;
                 }
 
-                _Ret_maybenull_ __YYAPI operator _Type*() const
+                inline _Ret_notnull_ _Type** __YYAPI GetAddressOf() noexcept
+                {
+                    return &p;
+                }
+
+                _Ret_maybenull_ __YYAPI operator _Type*() const noexcept
                 {
                     return p;
                 }
 
-                _Ret_maybenull_ _Type* __YYAPI operator->() const
+                _Ret_maybenull_ _Type* __YYAPI operator->() const noexcept
                 {
                     return p;
                 }
 
-                UniquePtr& __YYAPI operator=(_In_opt_ const UniquePtr& _pOther) = delete;
-
-                UniquePtr& __YYAPI operator=(std::nullptr_t)
+                UniquePtr& __YYAPI operator=(std::nullptr_t) noexcept
                 {
-                    Attach(nullptr);
+                    Reset();
                     return *this;
                 }
 
@@ -104,6 +118,16 @@ namespace YY
                     }
 
                     return *this;
+                }
+
+                bool __YYAPI operator==(_In_opt_ const _Type* _pOther) const noexcept
+                {
+                    return p == _pOther;
+                }
+
+                bool __YYAPI operator!=(_In_opt_ const _Type* _pOther) const noexcept
+                {
+                    return p != _pOther;
                 }
             };
 
@@ -111,16 +135,16 @@ namespace YY
             class UniquePtr<_Type[]>
             {
             private:
-                _Type* p;
+                _Type* p = nullptr;
 
             public:
-                UniquePtr()
-                    : p(nullptr)
-                {
-                }
+                UniquePtr(const UniquePtr& _pOther) = delete;
+                UniquePtr& __YYAPI operator=(_In_opt_ const UniquePtr& _pOther) = delete;
+
+                constexpr UniquePtr() = default;
 
                 // 此构造不安全，因此刻意explicit
-                explicit UniquePtr(_Type* _pOther) noexcept
+                explicit constexpr UniquePtr(_Type* _pOther) noexcept
                     : p(_pOther)
                 {
                 }
@@ -132,23 +156,28 @@ namespace YY
 
                 ~UniquePtr()
                 {
-                    if (p)
-                        delete[] p;
+                    Reset();
                 }
 
-                _Type* __YYAPI Get() const
+                _Type* __YYAPI Get() const noexcept
                 {
                     return p;
                 }
 
-                inline void __YYAPI Attach(_In_opt_ _Type* _pOther)
+                void __YYAPI Reset(_In_opt_ _Type* _pOther = nullptr) noexcept
                 {
                     if (p)
-                        delete p;
+                        delete[] p;
+
                     p = _pOther;
                 }
 
-                inline _Ret_maybenull_ _Type* __YYAPI Detach()
+                inline void __YYAPI Attach(_In_opt_ _Type* _pOther) noexcept
+                {
+                    Reset(_pOther);
+                }
+
+                inline _Ret_maybenull_ _Type* __YYAPI Detach() noexcept
                 {
                     auto _p = p;
                     p = nullptr;
@@ -157,25 +186,28 @@ namespace YY
 
                 inline _Ret_notnull_ _Type** __YYAPI ReleaseAndGetAddressOf() noexcept
                 {
-                    Attach(nullptr);
+                    Reset();
                     return &p;
                 }
 
-                __YYAPI operator _Type*() const
+                inline _Ret_notnull_ _Type** __YYAPI GetAddressOf() noexcept
+                {
+                    return &p;
+                }
+
+                __YYAPI operator _Type*() const noexcept
                 {
                     return p;
                 }
 
-                _Type* __YYAPI operator->() const
+                _Type* __YYAPI operator->() const noexcept
                 {
                     return p;
                 }
 
-                UniquePtr& __YYAPI operator=(_In_opt_ const UniquePtr& _pOther) = delete;
-
-                UniquePtr& __YYAPI operator=(std::nullptr_t)
+                UniquePtr& __YYAPI operator=(std::nullptr_t) noexcept
                 {
-                    Attach(nullptr);
+                    Reset();
                     return *this;
                 }
 
@@ -188,9 +220,19 @@ namespace YY
 
                     return *this;
                 }
+
+                bool __YYAPI operator==(_In_opt_ const _Type* _pOther) const noexcept
+                {
+                    return p == _pOther;
+                }
+
+                bool __YYAPI operator!=(_In_opt_ const _Type* _pOther) const noexcept
+                {
+                    return p != _pOther;
+                }
             };
         } // namespace Memory
-    }     // namespace Base
+    } // namespace Base
 
     using namespace YY::Base::Memory;
 } // namespace YY

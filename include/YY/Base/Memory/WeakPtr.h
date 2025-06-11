@@ -104,6 +104,11 @@ namespace YY
                     }
                 }
 
+                _Ret_maybenull_ __YYAPI operator _Type* () const noexcept
+                {
+                    return Get();
+                }
+
                 bool __YYAPI operator==(_In_opt_ _Type* _pOther) const noexcept
                 {
                     return p == _pOther;

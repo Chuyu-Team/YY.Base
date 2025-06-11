@@ -207,7 +207,12 @@ namespace YY
                     return *this;
                 }
 
-                _Ret_maybenull_ __YYAPI operator _Type* () const noexcept
+                _Ret_maybenull_ __YYAPI operator _Type* () noexcept
+                {
+                    return p;
+                }
+
+                _Ret_maybenull_ __YYAPI operator const _Type* () const noexcept
                 {
                     return p;
                 }
