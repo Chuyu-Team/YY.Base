@@ -184,6 +184,7 @@
     <ClCompile Include="..\src\YY\Base\Utils\FileInfo.cpp" />
     <ClCompile Include="..\src\YY\Base\Utils\SystemInfo.cpp" />
     <ClCompile Include="AsyncFileUnitTest.cpp" />
+    <ClCompile Include="BindUnitTest.cpp" />
     <ClCompile Include="BitMapUnitTest.cpp" />
     <ClCompile Include="DynamicArrayUnitTest.cpp" />
     <ClCompile Include="ObserverPtrUnitTest.cpp" />
@@ -202,6 +203,7 @@
     <ClInclude Include="..\include\YY\Base\Encoding.h" />
     <ClInclude Include="..\include\YY\Base\ErrorCode.h" />
     <ClInclude Include="..\include\YY\Base\Exception.h" />
+    <ClInclude Include="..\include\YY\Base\Functional\Bind.h" />
     <ClInclude Include="..\include\YY\Base\IO\File.h" />
     <ClInclude Include="..\include\YY\Base\Memory\Alloc.h" />
     <ClInclude Include="..\include\YY\Base\Memory\ObserverPtr.h" />

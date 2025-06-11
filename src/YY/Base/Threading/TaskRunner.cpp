@@ -29,6 +29,22 @@ namespace YY
                 return WaitOnAddress(&hr, &_hrTarget, sizeof(_hrTarget), _uMilliseconds);
             }
 
+            HRESULT __YYAPI TaskEntry::RunTask()
+            {
+                if (IsCanceled())
+                    return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+
+                try
+                {
+                    pfnTaskCallback();
+                    return S_OK;
+                }
+                catch (const YY::Base::OperationCanceledException& _Exception)
+                {
+                    return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                }
+            }
+
             HRESULT __YYAPI Timer::RunTask()
             {
                 if (IsCanceled())
@@ -36,8 +52,15 @@ namespace YY
 
                 if (uInterval.GetMilliseconds() <= 0)
                 {
-                    pfnTaskCallback();
-                    return S_OK;
+                    try
+                    {
+                        pfnTaskCallback();
+                        return S_OK;
+                    }
+                    catch (const YY::Base::OperationCanceledException& _Exception)
+                    {
+                        return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                    }
                 }
                 else
                 {
@@ -198,8 +221,15 @@ namespace YY
                 // 调用者的跟执行者属于同一个TaskRunner，这时我们直接调用 _pfnCallback，避免各种等待以及任务投递开销。
                 if (TaskRunner::GetCurrent() == this)
                 {
-                    pfnTaskCallback();
-                    return S_OK;
+                    try
+                    {
+                        pfnTaskCallback();
+                        return S_OK;
+                    }
+                    catch (const YY::Base::OperationCanceledException& _Exception)
+                    {
+                        return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                    }
                 }
 
                 TaskEntry _oWorkEntry;
@@ -402,14 +432,21 @@ namespace YY
                 if (IsCanceled())
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
-                if (pfnWaitTaskCallback(uWaitResult))
+                try
                 {
-                    if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
+                    if (pfnWaitTaskCallback(uWaitResult))
                     {
-                        _pOwnerTaskRunner->SetWaitInternal(this);
+                        if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
+                        {
+                            _pOwnerTaskRunner->SetWaitInternal(this);
+                        }
                     }
+                    return S_OK;
                 }
-                return S_OK;
+                catch (const YY::Base::OperationCanceledException& _Exception)
+                {
+                    return HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                }
             }
         } // namespace Threading
     }

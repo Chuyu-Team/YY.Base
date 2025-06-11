@@ -92,14 +92,7 @@ namespace YY
                     YY::Sync::BitSet((int32_t*)&fStyle, 2);
                 }
 
-                virtual HRESULT __YYAPI RunTask()
-                {
-                    if (IsCanceled())
-                        return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-
-                    pfnTaskCallback();
-                    return S_OK;
-                }
+                virtual HRESULT __YYAPI RunTask();
             };
 
             struct Timer : public TaskEntry

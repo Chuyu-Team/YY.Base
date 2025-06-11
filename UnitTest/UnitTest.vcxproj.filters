@@ -76,6 +76,9 @@
     <Filter Include="源文件\YY\Base\Utils">
       <UniqueIdentifier>{c823141c-30c2-436d-838f-d4d7cd44467b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\YY\Base\Functional">
+      <UniqueIdentifier>{e71fcceb-32ee-4784-a528-9a8b405e955e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\YY\Base\Strings\StringTransform.cpp">
@@ -133,6 +136,9 @@
       <Filter>单元测试</Filter>
     </ClCompile>
     <ClCompile Include="ObserverPtrUnitTest.cpp">
+      <Filter>单元测试</Filter>
+    </ClCompile>
+    <ClCompile Include="BindUnitTest.cpp">
       <Filter>单元测试</Filter>
     </ClCompile>
   </ItemGroup>
@@ -301,6 +307,9 @@
     </ClInclude>
     <ClInclude Include="..\include\YY\Base\Memory\ObserverPtr.h">
       <Filter>头文件\YY\Base\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\YY\Base\Functional\Bind.h">
+      <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
