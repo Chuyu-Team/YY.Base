@@ -146,7 +146,7 @@ namespace YY
                 {
                     if (_oOther.HasValue())
                     {
-                        operator=(_oOther);
+                        operator=(_oOther.GetValue());
                     }
                     else
                     {
