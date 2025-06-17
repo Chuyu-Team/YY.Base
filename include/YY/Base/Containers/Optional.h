@@ -146,7 +146,7 @@ namespace YY
                 {
                     if (_oOther.HasValue())
                     {
-                        operator=(_oOther);
+                        operator=(_oOther.GetValue());
                     }
                     else
                     {
@@ -163,7 +163,7 @@ namespace YY
 
                     if (_oOther.HasValue())
                     {
-                        operator=(std::move(_oOther));
+                        operator=(std::move(_oOther.GetValue()));
                         _oOther.Reset();
                     }
                     else
