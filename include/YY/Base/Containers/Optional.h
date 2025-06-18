@@ -63,33 +63,33 @@ namespace YY
                     Reset();
                 }
 
-                inline bool HasValue() const
+                inline bool __YYAPI HasValue() const noexcept
                 {
                     return bHasValue;
                 }
 
-                _Type* GetValuePtr()
+                _Ret_maybenull_ _Type* __YYAPI GetValuePtr() noexcept
                 {
                     return bHasValue ? &oValue : nullptr;
                 }
 
-                inline const _Type* GetValuePtr() const
+                _Ret_maybenull_ inline const _Type* __YYAPI GetValuePtr() const noexcept
                 {
                     return const_cast<Optional*>(this)->GetValuePtr();
                 }
 
-                inline _Type& GetValue()
+                inline _Type& __YYAPI GetValue()
                 {
                     return *GetValuePtr();
                 }
 
-                inline const _Type& GetValue() const
+                inline const _Type& __YYAPI GetValue() const
                 {
                     return *GetValuePtr();
                 }
 
                 template<typename... Args>
-                _Type& Emplace(Args&&... oArgs)
+                _Type& __YYAPI Emplace(Args&&... oArgs)
                 {
                     Reset();
                     new (&oValue) _Type(std::forward<Args>(oArgs)...);
@@ -97,7 +97,7 @@ namespace YY
                     return oValue;
                 }
 
-                void Reset()
+                void __YYAPI Reset()
                 {
                     if (bHasValue)
                     {
@@ -106,7 +106,7 @@ namespace YY
                     }
                 }
 
-                Optional& operator=(const _Type& _oValue)
+                Optional& __YYAPI operator=(const _Type& _oValue)
                 {
                     if (bHasValue)
                     {
@@ -124,7 +124,7 @@ namespace YY
                     return *this;
                 }
 
-                Optional& operator=(_Type&& _oValue)
+                Optional& __YYAPI operator=(_Type&& _oValue)
                 {
                     if (bHasValue)
                     {
@@ -142,7 +142,7 @@ namespace YY
                     return *this;
                 }
 
-                Optional& operator=(const Optional& _oOther)
+                Optional& __YYAPI operator=(const Optional& _oOther)
                 {
                     if (_oOther.HasValue())
                     {
@@ -156,7 +156,7 @@ namespace YY
                     return *this;
                 }
 
-                Optional& operator=(Optional&& _oOther)
+                Optional& __YYAPI operator=(Optional&& _oOther)
                 {
                     if(this == &_oOther)
                         return *this;
@@ -174,7 +174,7 @@ namespace YY
                     return *this;
                 }
                 
-                bool operator==(const Optional& _oOther) const
+                bool __YYAPI operator==(const Optional& _oOther) const noexcept
                 {
                     if (HasValue() != _oOther.HasValue())
                         return false;
@@ -188,7 +188,7 @@ namespace YY
                 }
 
 #if !defined(_HAS_CXX20) || _HAS_CXX20 == 0
-                bool operator!=(const Optional& _oOther) const
+                bool __YYAPI operator!=(const Optional& _oOther) const noexcept
                 {
                     if (HasValue() != _oOther.HasValue())
                         return true;
