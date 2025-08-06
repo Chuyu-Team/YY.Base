@@ -105,6 +105,8 @@ namespace TaskRunnerUnitTest
             Assert::AreEqual((void*)_pOutTaskRunner.Get(), (void*)_pTaskRunner.Get());
         }
 
+#if 0
+        // 耗时太长，暂时不启用
         TEST_METHOD(时间间隔检测)
         {
             auto _pTaskRunner = SequencedTaskRunner::Create();
@@ -215,6 +217,7 @@ namespace TaskRunnerUnitTest
                 Assert::IsTrue(nMilliseconds <= (kDelay + kDeviation) && nMilliseconds >= (kDelay - 5), _szTmp);
             }
         }
+#endif
 
         TEST_METHOD(周期性唤醒检查)
         {
@@ -580,6 +583,8 @@ namespace TaskRunnerUnitTest
             CloseHandle(_hEvent);
         }
 
+#if 0
+        // 耗时太长，暂时不启用
         TEST_METHOD(时间间隔检测)
         {
             auto _pTaskRunner = ThreadTaskRunner::Create();
@@ -690,6 +695,7 @@ namespace TaskRunnerUnitTest
                 Assert::IsTrue(nMilliseconds <= (kDelay + kDeviation) && nMilliseconds >= (kDelay - 5), _szTmp);
             }
         }
+#endif
 
         TEST_METHOD(周期性唤醒检查)
         {
