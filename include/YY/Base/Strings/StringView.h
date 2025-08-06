@@ -228,11 +228,35 @@ namespace YY
                     }
                 }
 
-                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) noexcept
+                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const noexcept
                 {
                     for (; _uIndex < GetSize(); ++_uIndex)
                     {
                         if (sString[_uIndex] == _ch)
+                        {
+                            return _uIndex;
+                        }
+                    }
+
+                    return -1;
+                }
+
+                size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const noexcept
+                {
+                    if (_sStr.IsEmpty())
+                        return -1;
+
+                    if (_uIndex + _sStr.GetLength() < GetSize())
+                    {
+                        return size_t(-1);
+                    }
+
+                    auto _sStart = sString + _uIndex;
+                    const auto _sEnd = sString + GetSize() - _sStr.GetLength();
+                    const auto _cbCmp = _sStr.GetSize() * sizeof(_sStr[0]);
+                    for (; _sStart <= _sEnd; ++_sStart)
+                    {
+                        if (memcmp(_sStart, _sStr.GetConstString(), _cbCmp) == 0)
                         {
                             return _uIndex;
                         }
@@ -323,6 +347,56 @@ namespace YY
                     TrimStart(_sTrimChars);
                     TrimEnd(_sTrimChars);
                     return *this;
+                }
+
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    auto _uIndex = Find(_chSplit);
+                    if (_uIndex == size_t(-1))
+                    {
+                        StringView _sResult = *this;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = StringView();
+                        }
+
+                        return _sResult;
+                    }
+                    else
+                    {
+                        StringView _sResult = Substring(0, _uIndex);;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = Substring(_uIndex + 1);
+                        }
+
+                        return _sResult;
+                    }
+                }
+
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    auto _uIndex = Find(_sSplit);
+                    if (_uIndex == size_t(-1))
+                    {
+                        StringView _sResult = *this;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = StringView();
+                        }
+
+                        return _sResult;
+                    }
+                    else
+                    {
+                        StringView _sResult = Substring(0, _uIndex);;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = Substring(_uIndex + _sSplit.GetLength());
+                        }
+
+                        return _sResult;
+                    }
                 }
             };
 
@@ -529,11 +603,35 @@ namespace YY
                     }
                 }
 
-                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) noexcept
+                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const noexcept
                 {
                     for (; _uIndex < GetSize(); ++_uIndex)
                     {
                         if (sString[_uIndex] == _ch)
+                        {
+                            return _uIndex;
+                        }
+                    }
+
+                    return -1;
+                }
+
+                size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const noexcept
+                {
+                    if (_sStr.IsEmpty())
+                        return -1;
+
+                    if (_uIndex + _sStr.GetLength() < GetSize())
+                    {
+                        return size_t(-1);
+                    }
+
+                    auto _sStart = sString + _uIndex;
+                    const auto _sEnd = sString + GetSize() - _sStr.GetLength();
+                    const auto _cbCmp = _sStr.GetSize() * sizeof(_sStr[0]);
+                    for (; _sStart <= _sEnd; ++_sStart)
+                    {
+                        if (memcmp(_sStart, _sStr.GetConstString(), _cbCmp) == 0)
                         {
                             return _uIndex;
                         }
@@ -621,6 +719,56 @@ namespace YY
                     TrimStart(_sTrimChars);
                     TrimEnd(_sTrimChars);
                     return *this;
+                }
+
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    auto _uIndex = Find(_chSplit);
+                    if (_uIndex == size_t(-1))
+                    {
+                        StringView _sResult = *this;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = StringView();
+                        }
+
+                        return _sResult;
+                    }
+                    else
+                    {
+                        StringView _sResult = Substring(0, _uIndex);;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = Substring(_uIndex + 1);
+                        }
+
+                        return _sResult;
+                    }
+                }
+
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    auto _uIndex = Find(_sSplit);
+                    if (_uIndex == size_t(-1))
+                    {
+                        StringView _sResult = *this;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = StringView();
+                        }
+
+                        return _sResult;
+                    }
+                    else
+                    {
+                        StringView _sResult = Substring(0, _uIndex);;
+                        if (_psRemaining)
+                        {
+                            *_psRemaining = Substring(_uIndex + _sSplit.GetLength());
+                        }
+
+                        return _sResult;
+                    }
                 }
             };
 
