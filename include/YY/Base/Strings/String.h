@@ -238,6 +238,16 @@ namespace YY
                     return GetInternalStringData()->uSize;
                 }
 
+                uint_t __YYAPI GetLength() const
+                {
+                    return GetInternalStringData()->uSize;
+                }
+
+                inline bool __YYAPI IsEmpty() const
+                {
+                    return GetLength() == 0;
+                }
+
                 uint_t __YYAPI GetCapacity() const
                 {
                     return GetInternalStringData()->uCapacity;
@@ -623,6 +633,22 @@ namespace YY
                         return false;
 
                     return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) == 0;
+                }
+
+                bool __YYAPI operator!=(const StringBase& _szSrc) const
+                {
+                    if (this->GetSize() == _szSrc.GetSize())
+                        return false;
+
+                    return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) != 0;
+                }
+
+                bool __YYAPI operator!=(const StringView_t& _szSrc) const
+                {
+                    if (this->GetSize() == _szSrc.GetSize())
+                        return false;
+
+                    return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) != 0;
                 }
 
                 _Ret_z_ const char_t* __YYAPI begin() const

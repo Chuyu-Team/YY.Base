@@ -75,10 +75,26 @@ namespace YY
                     return cchString;
                 }
 
+                inline size_t __YYAPI GetLength() const
+                {
+                    return cchString;
+                }
+
+                inline bool __YYAPI IsEmpty() const
+                {
+                    return cchString == 0;
+                }
+
                 inline _Ret_notnull_ _Post_readable_size_(cchString)
                 const char_t* __YYAPI GetConstString() const
                 {
                     return sString;
+                }
+
+                void __YYAPI Clear()
+                {
+                    sString = nullptr;
+                    cchString = 0;
                 }
 
                 inline char_t __YYAPI operator[](_In_ size_t _uIndex) const
@@ -106,9 +122,22 @@ namespace YY
                     return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) == 0;
                 }
 
+                bool __YYAPI operator!=(StringView _sOther) const
+                {
+                    if (cchString == _sOther.cchString)
+                        return false;
+
+                    return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) != 0;
+                }
+
                 bool __YYAPI operator==(_In_z_ const char_t* _Other) const
                 {
                     return Compare(_Other) == 0;
+                }
+
+                bool __YYAPI operator!=(_In_z_ const char_t* _Other) const
+                {
+                    return Compare(_Other) != 0;
                 }
 
                 int __YYAPI Compare(_In_z_ const char_t* _szOther) const
@@ -250,6 +279,50 @@ namespace YY
                     {
                         return StringView();
                     }
+                }
+
+                StringView& __YYAPI TrimStart(StringView _sTrimChars)
+                {
+                    while (cchString)
+                    {
+                        if (_sTrimChars.Find(sString[0]) != -1)
+                        {
+                            ++sString;
+                            --cchString;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    return *this;
+                }
+
+                StringView& __YYAPI TrimEnd(StringView _sTrimChars)
+                {
+                    if(_sTrimChars.GetLength() == 0)
+                        return *this;
+
+                    while (cchString)
+                    {
+                        if (_sTrimChars.Find(sString[cchString - 1]) != -1)
+                        {
+                            --cchString;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    return *this;
+                }
+
+                StringView& __YYAPI Trim(StringView _sTrimChars)
+                {
+                    TrimStart(_sTrimChars);
+                    TrimEnd(_sTrimChars);
+                    return *this;
                 }
             };
 
@@ -303,10 +376,26 @@ namespace YY
                     return cchString;
                 }
 
+                inline size_t __YYAPI GetLength() const
+                {
+                    return cchString;
+                }
+
+                inline bool __YYAPI IsEmpty() const
+                {
+                    return cchString == 0;
+                }
+
                 inline _Ret_notnull_ _Post_readable_size_(cchString)
                 const char_t* __YYAPI GetConstString() const
                 {
                     return sString;
+                }
+
+                void __YYAPI Clear()
+                {
+                    sString = nullptr;
+                    cchString = 0;
                 }
 
                 inline char_t __YYAPI operator[](_In_ size_t _uIndex) const
@@ -334,9 +423,22 @@ namespace YY
                     return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) == 0;
                 }
 
+                bool __YYAPI operator!=(StringView _sOther) const
+                {
+                    if (cchString == _sOther.cchString)
+                        return false;
+
+                    return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) != 0;
+                }
+
                 bool __YYAPI operator==(_In_z_ const char_t* _szOther) const
                 {
                     return Compare(_szOther) == 0;
+                }
+
+                bool __YYAPI operator!=(_In_z_ const char_t* _szOther) const
+                {
+                    return Compare(_szOther) != 0;
                 }
 
                 int __YYAPI Compare(_In_z_ const char_t* _szOther) const
@@ -478,6 +580,47 @@ namespace YY
                     {
                         return StringView();
                     }
+                }
+
+                StringView& __YYAPI TrimStart(StringView _sTrimChars)
+                {
+                    while (cchString)
+                    {
+                        if (_sTrimChars.Find(sString[0]) != -1)
+                        {
+                            ++sString;
+                            --cchString;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    return *this;
+                }
+
+                StringView& __YYAPI TrimEnd(StringView _sTrimChars)
+                {
+                    while (cchString)
+                    {
+                        if (_sTrimChars.Find(sString[cchString - 1]) != -1)
+                        {
+                            --cchString;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    return *this;
+                }
+
+                StringView& __YYAPI Trim(StringView _sTrimChars)
+                {
+                    TrimStart(_sTrimChars);
+                    TrimEnd(_sTrimChars);
+                    return *this;
                 }
             };
 
