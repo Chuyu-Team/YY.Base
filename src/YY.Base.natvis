@@ -1,24 +1,25 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="YY::Base::String::StringView&lt;*&gt;" Priority="MediumLow">
+    <Type Name="YY::Base::Strings::StringView&lt;*&gt;" Priority="MediumLow">
         <Intrinsic Name="GetSize" Expression="cchString" />
         <Intrinsic Name="GetEncoding" Expression="eEncoding" />
-        <DisplayString Condition="GetEncoding() == YY::Base::Encoding::UTF8">{ (size_t)szString,x } u8{ szString,s8 }</DisplayString>
-        <DisplayString Condition="GetEncoding() != YY::Base::Encoding::UTF8">{ szString }</DisplayString>
-        <StringView Condition="GetEncoding() == YY::Base::Encoding::UTF8">szString,s8</StringView>
-        <StringView Condition="GetEncoding() != YY::Base::Encoding::UTF8">szString</StringView>
+
+        <DisplayString Condition="GetEncoding() == YY::Base::Encoding::UTF8">u8{ (char8_t*)sString,[cchString]na }</DisplayString>
+        <DisplayString Condition="GetEncoding() != YY::Base::Encoding::UTF8">{ sString,[cchString]na }</DisplayString>
+        <StringView Condition="GetEncoding() == YY::Base::Encoding::UTF8">(char8_t*)sString,[cchString]na</StringView>
+        <StringView Condition="GetEncoding() != YY::Base::Encoding::UTF8">sString,[cchString]na</StringView>
         <Expand>
             <Item Name="[Size]" ExcludeView="simple">GetSize()</Item>
             <Item Name="[Encoding]" ExcludeView="simple">GetEncoding()</Item>
             <ArrayItems>
                 <Size>GetSize()</Size>
-                <ValuePointer>szString</ValuePointer>
+                <ValuePointer>sString</ValuePointer>
             </ArrayItems>
         </Expand>
 
     </Type>
     
-    <Type Name="YY::Base::String::StringBase&lt;*&gt;" Priority="MediumLow">
+    <Type Name="YY::Base::Strings::StringBase&lt;*&gt;" Priority="MediumLow">
         <Intrinsic Name="GetInternalStringData" Expression="((StringData*)szString)[-1]" />
 
         <Intrinsic Name="GetSize" Expression="GetInternalStringData().uSize" />
@@ -43,7 +44,7 @@
         </Expand>
     </Type>
     
-    <Type Name="YY::Base::String::NString" Priority="MediumLow">
+    <Type Name="YY::Base::Strings::NString" Priority="MediumLow">
         <Intrinsic Name="GetInternalStringData" Expression="((StringData*)szANSI.szString)[-1]" />
 
         <Intrinsic Name="GetSize" Expression="GetInternalStringData().uSize" />
