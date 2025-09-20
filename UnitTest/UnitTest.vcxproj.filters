@@ -311,6 +311,9 @@
     <ClInclude Include="..\include\YY\Base\Functional\Bind.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\YY\Base\Time\UtcTime.h">
+      <Filter>头文件\YY\Base\Time</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\src\YY.Base.natvis">

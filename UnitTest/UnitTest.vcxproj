@@ -181,6 +181,7 @@
     <ClCompile Include="..\src\YY\Base\Threading\TaskRunnerDispatchImpl.cpp" />
     <ClCompile Include="..\src\YY\Base\Threading\TaskRunnerImpl.cpp" />
     <ClCompile Include="..\src\YY\Base\Threading\ThreadTaskRunnerImpl.cpp" />
+    <ClCompile Include="..\src\YY\Base\Time\DataTime.cpp" />
     <ClCompile Include="..\src\YY\Base\Utils\FileInfo.cpp" />
     <ClCompile Include="..\src\YY\Base\Utils\SystemInfo.cpp" />
     <ClCompile Include="AsyncFileUnitTest.cpp" />
@@ -231,6 +232,7 @@
     <ClInclude Include="..\include\YY\Base\Time\Common.h" />
     <ClInclude Include="..\include\YY\Base\Time\TickCount.h" />
     <ClInclude Include="..\include\YY\Base\Time\TimeSpan.h" />
+    <ClInclude Include="..\include\YY\Base\Time\DataTime.h" />
     <ClInclude Include="..\include\YY\Base\Utils\ComObjectImpl.h" />
     <ClInclude Include="..\include\YY\Base\Utils\FileInfo.h" />
     <ClInclude Include="..\include\YY\Base\Utils\MathUtils.h" />
