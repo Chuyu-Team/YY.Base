@@ -116,15 +116,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 10ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(10),
+                    TimeSpan::FromMilliseconds(10),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -143,15 +143,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 100ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -169,15 +169,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 1000ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -196,15 +196,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 1300ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -226,22 +226,22 @@ namespace TaskRunnerUnitTest
 
             HANDLE _hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
 
-            auto _uStartTick = TickCount<TimePrecise::Millisecond>::GetCurrent();
+            auto _uStartTick = TickCount::GetNow();
 
             int nCount = 0;
             RefPtr<Timer> _pTimer;
             _pTimer = _pTaskRunner->CreateTimer(
-                TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                TimeSpan::FromMilliseconds(500),
                 [&nCount, _uStartTick, _hEvent]()
                 {
                     ++nCount;
-                    auto _nSpan = TickCount<TimePrecise::Millisecond>::GetCurrent() - _uStartTick;
+                    auto _nSpan = TickCount::GetNow() - _uStartTick;
 
                     Strings::uString _szTmp;
-                    _szTmp.Format(L"Run 延迟 %I64d\n", _nSpan.GetMilliseconds());
+                    _szTmp.Format(L"Run 延迟 %I64d\n", _nSpan.GetTotalMilliseconds());
 
                     OutputDebugStringW(_szTmp);
-                    auto _uArg = _nSpan.GetMilliseconds() / nCount;
+                    auto _uArg = _nSpan.GetTotalMilliseconds() / nCount;
 
                     Assert::IsTrue(_uArg >= 500 - 100);
                     Assert::IsTrue(_uArg <= 500 + 100);
@@ -358,7 +358,7 @@ namespace TaskRunnerUnitTest
             volatile DWORD _uWaitResult = -1;
             auto _pWait = _pTaskRunner->CreateWait(
                 _hEvent,
-                TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                TimeSpan::FromMilliseconds(500),
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
@@ -370,7 +370,7 @@ namespace TaskRunnerUnitTest
 
             _pWait = _pTaskRunner->CreateWait(
                 _hEvent,
-                TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                TimeSpan::FromMilliseconds(500),
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
@@ -594,15 +594,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 10ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(10),
+                    TimeSpan::FromMilliseconds(10),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -621,15 +621,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 100ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -647,15 +647,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 1000ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -674,15 +674,15 @@ namespace TaskRunnerUnitTest
                 constexpr auto kDelay = 1300ul;
                 constexpr auto kDeviation = 35ul;
 
-                auto _uStartTick = TickCount<TimePrecise::Microsecond>::GetCurrent();
-                TickCount<TimePrecise::Microsecond> _uEnd;
+                auto _uStartTick = TickCount::GetNow();
+                TickCount _uEnd;
 
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(kDelay),
+                    TimeSpan::FromMilliseconds(kDelay),
                     [&_uEnd]()
                     {
-                        _uEnd = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        _uEnd = TickCount::GetNow();
                         return false;
                     });
 
@@ -704,12 +704,12 @@ namespace TaskRunnerUnitTest
             RefPtr<ThreadTaskRunner> _pTaskRunners[] = { ThreadTaskRunner::Create(false), ThreadTaskRunner::Create(true)};
             for (auto& _pTaskRunner : _pTaskRunners)
             {
-                auto _uStartTick = TickCount<TimePrecise::Millisecond>::GetCurrent();
+                auto _uStartTick = TickCount::GetNow();
 
                 volatile int nCount = 0;
                 RefPtr<Timer> _pTimer;
                 _pTimer = _pTaskRunner->CreateTimer(
-                    TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                    TimeSpan::FromMilliseconds(500),
                     [&nCount, _uStartTick, _hEvent]()
                     {
                         ++nCount;
@@ -823,7 +823,7 @@ namespace TaskRunnerUnitTest
             volatile DWORD _uWaitResult = -1;
             auto _pWait = _pTaskRunner->CreateWait(
                 _hEvent,
-                TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                TimeSpan::FromMilliseconds(500),
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
@@ -835,7 +835,7 @@ namespace TaskRunnerUnitTest
 
             _pWait = _pTaskRunner->CreateWait(
                 _hEvent,
-                TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(500),
+                TimeSpan::FromMilliseconds(500),
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;

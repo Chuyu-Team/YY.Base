@@ -15,13 +15,13 @@ namespace YY
             bool __YYAPI WaitEqualOnAddress(
                 volatile ValueType* _pAddress,
                 ValueType _CompareValue,
-                TimeSpan<TimePrecise::Millisecond> _uMilliseconds) noexcept
+                TimeSpan _uMilliseconds) noexcept
             {
-                if (_uMilliseconds.GetMilliseconds() <= 0)
+                if (_uMilliseconds.GetTotalMilliseconds() <= 0)
                 {
                     return *_pAddress == _CompareValue;
                 }
-                else if (_uMilliseconds == TimeSpan<TimePrecise::Millisecond>::GetMax())
+                else if (_uMilliseconds == TimeSpan::GetMax())
                 {
                     for (;;)
                     {
@@ -36,18 +36,18 @@ namespace YY
                 }
                 else
                 {
-                    const auto _uExpireTick = TickCount<TimePrecise::Microsecond>::GetCurrent() + _uMilliseconds;
+                    const auto _uExpireTick = TickCount::GetNow() + _uMilliseconds;
                     for (;;)
                     {
                         auto _Temp = *_pAddress;
                         if (_Temp == _CompareValue)
                             break;
 
-                        const auto _uCurrent = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        const auto _uCurrent = TickCount::GetNow();
                         if (_uCurrent > _uExpireTick)
                             return false;
 
-                        if (!WaitOnAddress(_pAddress, &_Temp, sizeof(_Temp), (_uExpireTick - _uCurrent).GetMilliseconds()))
+                        if (!WaitOnAddress(_pAddress, &_Temp, sizeof(_Temp), (_uExpireTick - _uCurrent).GetTotalMilliseconds()))
                             return false;
                     }
 
@@ -59,7 +59,7 @@ namespace YY
                 volatile void* Address,
                 void* CompareAddress,
                 size_t AddressSize,
-                TimeSpan<TimePrecise::Millisecond> _uMilliseconds) noexcept
+                TimeSpan _uMilliseconds) noexcept
             {
                 switch (AddressSize)
                 {

@@ -54,7 +54,7 @@ namespace YY
                 // 故意打开一次句柄，保证ThreadTaskRunner释放前， uThreadId 始终有效。
                 HANDLE hThread = nullptr;
                 HWND hTaskRunnerWnd = nullptr;
-                TickCount<TimePrecise::Microsecond> uTimerWakeupTickCount = TickCount<TimePrecise::Microsecond>::GetMax();
+                TickCount uTimerWakeupTickCount = TickCount::GetMax();
 
             public:
                 ThreadTaskRunnerProxyImpl() = default;
@@ -102,7 +102,7 @@ namespace YY
                     return uThreadId;
                 }
 
-                HRESULT __YYAPI Join(TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut) noexcept override
+                HRESULT __YYAPI Join(TimeSpan _nWaitTimeOut) noexcept override
                 {
                     if (GetCurrent() == this)
                     {
@@ -283,11 +283,11 @@ namespace YY
                 {
                     ProcessingTimerTasks();
                     auto _uWakeupTickCount = GetMinimumWakeupTickCount();
-                    if (_uWakeupTickCount == TickCount<TimePrecise::Microsecond>::GetMax())
+                    if (_uWakeupTickCount == TickCount::GetMax())
                     {
-                        if (uTimerWakeupTickCount != TickCount<TimePrecise::Microsecond>::GetMax())
+                        if (uTimerWakeupTickCount != TickCount::GetMax())
                         {
-                            uTimerWakeupTickCount = TickCount<TimePrecise::Microsecond>::GetMax();
+                            uTimerWakeupTickCount = TickCount::GetMax();
                             KillTimer(hTaskRunnerWnd, kTimerTaskTimerId);
                         }
                     }

@@ -56,7 +56,7 @@ namespace YY
                 // TaskRunner
                 virtual TaskRunnerStyle __YYAPI GetStyle() const noexcept override;
 
-                HRESULT __YYAPI Join(TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut) noexcept override;
+                HRESULT __YYAPI Join(TimeSpan _nWaitTimeOut) noexcept override;
 
                 HRESULT __YYAPI Interrupt() noexcept override;
 

@@ -20,22 +20,22 @@ namespace YY
                 return Sync::Increment(&s_TaskRunnerId);
             }
 
-            uint32_t __YYAPI GetWaitTimeSpan(TickCount<TimePrecise::Microsecond> _uWakeupTickCount) noexcept
+            uint32_t __YYAPI GetWaitTimeSpan(TickCount _uWakeupTickCount) noexcept
             {
-                if (_uWakeupTickCount == TickCount<TimePrecise::Microsecond>::GetMax())
+                if (_uWakeupTickCount == TickCount::GetMax())
                     return UINT32_MAX;
 
-                auto _nTimeSpan = _uWakeupTickCount - TickCount<TimePrecise::Microsecond>::GetCurrent();
-                if (_nTimeSpan.GetInternalValue() <= 0)
+                auto _nTimeSpan = _uWakeupTickCount - TickCount::GetNow();
+                if (_nTimeSpan.GetTicks() <= 0)
                 {
                     return 1ul;
                 }
-                else if (_nTimeSpan.GetMilliseconds() >= UINT32_MAX)
+                else if (_nTimeSpan.GetTotalMilliseconds() >= UINT32_MAX)
                 {
                     return UINT32_MAX;
                 }
 
-                return (uint32_t)(std::max)(_nTimeSpan.GetMilliseconds(), 1ll);
+                return (uint32_t)(std::max)(_nTimeSpan.GetTotalMilliseconds(), 1ll);
             }
         }
     }

@@ -6,19 +6,12 @@ namespace YY
     {
         namespace Time
         {
-            enum class TimePrecise
-            {
-                // Nanosecond,
-                Microsecond,
-                Millisecond,
-            };
-
-            constexpr int64_t MicrosecondPerNanosecond = 1000000;
-            constexpr int64_t MillisecondsPerMicrosecond = 1000;
-            constexpr int64_t SecondsPerMillisecond = 1000;
-            constexpr int64_t MinutesPerSecond = 60;
-            constexpr int64_t HoursPerMinute = 60;
-            constexpr int64_t DaysPerHour = 24;
+            constexpr int64_t kNanosecondsPerMicrosecond = 1000000;
+            constexpr int64_t kMicrosecondsPerMillisecond = 1000;
+            constexpr int64_t kMillisecondsPerSecond = 1000;
+            constexpr int64_t kSecondsPerMinute = 60;
+            constexpr int64_t kMinutesPerHour = 60;
+            constexpr int64_t kHoursPerDay = 24;
         }
     }
 }

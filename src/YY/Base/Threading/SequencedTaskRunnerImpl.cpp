@@ -29,7 +29,7 @@ namespace YY
                 return TaskRunnerStyle::Sequenced;
             }
 
-            HRESULT __YYAPI SequencedTaskRunnerImpl::Join(TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut) noexcept
+            HRESULT __YYAPI SequencedTaskRunnerImpl::Join(TimeSpan _nWaitTimeOut) noexcept
             {
                 if (GetCurrent() == this)
                 {

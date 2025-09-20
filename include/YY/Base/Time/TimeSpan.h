@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include <YY/Base/YY.h>
 #include <YY/Base/Time/Common.h>
-#include <YY/Base/Utils/MathUtils.h>
 
 #if defined(_HAS_CXX20) && _HAS_CXX20
 #include <compare>
@@ -15,178 +14,158 @@ namespace YY
     {
         namespace Time
         {
-            template<TimePrecise kPrecise>
-            class TimeSpanCommon;
-    
-            template<>
-            class TimeSpanCommon<TimePrecise::Microsecond>
-            {
-            public:
-                constexpr static int64_t __YYAPI GetSecondsPerInternal() noexcept
-                {
-                    return SecondsPerMillisecond * MillisecondsPerMicrosecond;
-                }
-            };
-
-            template<>
-            class TimeSpanCommon<TimePrecise::Millisecond>
-            {
-            public:
-                constexpr static int64_t __YYAPI GetSecondsPerInternal() noexcept
-                {
-                    return SecondsPerMillisecond;
-                }
-            };
-
-            template<TimePrecise ePrecise>
+            /// <summary>
+            /// 表示一段时间间，精度100纳秒，并提供多种单位的转换和操作方法。
+            /// </summary>
             class TimeSpan
             {
             private:
-                constexpr TimeSpan(int64_t _uElapsedInternal) noexcept
-                    : uElapsedInternal(_uElapsedInternal)
+                constexpr TimeSpan(int64_t _iElapsedTicks) noexcept
+                    : iElapsedTicks(_iElapsedTicks)
                 {
                 }
 
             public:
-                int64_t uElapsedInternal;
+                int64_t iElapsedTicks = 0;
 
-                using TimeSpanCommon_t = TimeSpanCommon<ePrecise>;
+                static constexpr int64_t kTicksPerMicrosecond = 10;
 
-                constexpr TimeSpan() noexcept
-                    : uElapsedInternal(0u)
-                {
-                }
+                constexpr TimeSpan() = default;
 
                 constexpr TimeSpan(const TimeSpan&) noexcept = default;
-
-                constexpr int64_t __YYAPI GetInternalValue() const noexcept
-                {
-                    return uElapsedInternal;
-                }
 
                 constexpr static TimeSpan __YYAPI GetMax() noexcept
                 {
                     return TimeSpan(INT64_MAX);
                 }
 
-                constexpr static int64_t __YYAPI GetSecondsPerInternal() noexcept
+                constexpr static TimeSpan __YYAPI GetMin() noexcept
                 {
-                    return TimeSpanCommon_t::GetSecondsPerInternal();
+                    return TimeSpan(INT64_MIN);
                 }
 
-                constexpr static TimeSpan __YYAPI FromInternalValue(int64_t _uElapsedInternalValue) noexcept
+                constexpr static int64_t __YYAPI GetTicksPerSecond() noexcept
                 {
-                    return TimeSpan(_uElapsedInternalValue);
+                    return kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond;
                 }
 
-                constexpr static TimeSpan __YYAPI FromMicroseconds(int64_t _uElapsedMicroseconds) noexcept
+                constexpr static TimeSpan __YYAPI FromTicks(int64_t _iElapsedTicks) noexcept
                 {
-                    // return TimeSpan(_uElapsedMicroseconds * GetSecondsPerInternal() / (SecondsPerMillisecond * MillisecondsPerMicrosecond));
-                    return TimeSpan(MulDiv64Fast(_uElapsedMicroseconds, GetSecondsPerInternal(), SecondsPerMillisecond * MillisecondsPerMicrosecond));
+                    return TimeSpan(_iElapsedTicks);
+                }
+
+                constexpr static TimeSpan __YYAPI FromMicroseconds(int64_t _iElapsedMicroseconds) noexcept
+                {
+                    return TimeSpan(_iElapsedMicroseconds * kTicksPerMicrosecond);
                 }
 
                 constexpr static TimeSpan __YYAPI FromMilliseconds(int64_t _uElapsedMilliseconds) noexcept
                 {
-                    // return TimeSpan(_uElapsedMilliseconds * GetSecondsPerInternal() / SecondsPerMillisecond);
-                    return TimeSpan(MulDiv64Fast(_uElapsedMilliseconds, GetSecondsPerInternal(), SecondsPerMillisecond));
+                    return TimeSpan(_uElapsedMilliseconds * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
                 constexpr static TimeSpan __YYAPI FromSeconds(int64_t _uElapsedSeconds) noexcept
                 {
-                    return TimeSpan(_uElapsedSeconds * GetSecondsPerInternal());
+                    return TimeSpan(_uElapsedSeconds * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
                 constexpr static TimeSpan __YYAPI FromMinutes(int64_t _uElapsedMinutes) noexcept
                 {
-                    return TimeSpan(_uElapsedMinutes * GetSecondsPerInternal() * MinutesPerSecond);
+                    return TimeSpan(_uElapsedMinutes  * kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
                 constexpr static TimeSpan __YYAPI FromHours(int64_t _uElapsedHours) noexcept
                 {
-                    return TimeSpan(_uElapsedHours * GetSecondsPerInternal() * MinutesPerSecond * HoursPerMinute);
+                    return TimeSpan(_uElapsedHours * kMinutesPerHour * kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
                 constexpr static TimeSpan __YYAPI FromDays(int64_t _uElapsedDays) noexcept
                 {
-                    return TimeSpan(_uElapsedDays * GetSecondsPerInternal() * MinutesPerSecond * HoursPerMinute * DaysPerHour);
+                    return TimeSpan(_uElapsedDays * kHoursPerDay * kMinutesPerHour * kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
         
-                constexpr int64_t __YYAPI GetMicroseconds() const noexcept
+                constexpr int64_t __YYAPI GetTicks() const noexcept
                 {
-                    // return uElapsedInternal * SecondsPerMillisecond * MillisecondsPerMicrosecond / GetSecondsPerInternal();
-                    return MulDiv64Fast(uElapsedInternal, SecondsPerMillisecond * MillisecondsPerMicrosecond, GetSecondsPerInternal());
+                    return iElapsedTicks;
                 }
 
-                constexpr int64_t __YYAPI GetMilliseconds() const noexcept
+                constexpr int64_t __YYAPI GetTotalMicroseconds() const noexcept
                 {
-                    // return uElapsedInternal * SecondsPerMillisecond / GetSecondsPerInternal();
-                    return MulDiv64Fast(uElapsedInternal, SecondsPerMillisecond, GetSecondsPerInternal());
+                    return iElapsedTicks / kTicksPerMicrosecond;
                 }
 
-                constexpr int64_t __YYAPI GetSeconds() const noexcept
+                constexpr int64_t __YYAPI GetTotalMilliseconds() const noexcept
                 {
-                    return uElapsedInternal / GetSecondsPerInternal();
+                    return iElapsedTicks / (kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
-                constexpr int64_t __YYAPI GetMinutes() const noexcept
+                constexpr int64_t __YYAPI GetTotalSeconds() const noexcept
                 {
-                    return uElapsedInternal / (GetSecondsPerInternal() * MinutesPerSecond);
+                    return iElapsedTicks / (kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
-                constexpr int64_t __YYAPI GetHours() const noexcept
+                constexpr int64_t __YYAPI GetTotalMinutes() const noexcept
                 {
-                    return uElapsedInternal / (GetSecondsPerInternal() * MinutesPerSecond * HoursPerMinute);
+                    return iElapsedTicks / (kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
-                constexpr int64_t __YYAPI GetDays() const noexcept
+                constexpr int64_t __YYAPI GetTotalHours() const noexcept
                 {
-                    return uElapsedInternal / (GetSecondsPerInternal() * MinutesPerSecond * HoursPerMinute * DaysPerHour);
+                    return iElapsedTicks / (kMinutesPerHour * kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
+                }
+
+                constexpr int64_t __YYAPI GetTotalDays() const noexcept
+                {
+                    return iElapsedTicks / (kHoursPerDay * kMinutesPerHour * kSecondsPerMinute * kMillisecondsPerSecond * kMicrosecondsPerMillisecond * kTicksPerMicrosecond);
                 }
 
                 TimeSpan& __YYAPI operator=(const TimeSpan&) noexcept = default;
 
                 constexpr bool __YYAPI operator==(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal == _oOther.uElapsedInternal;
+                    return iElapsedTicks == _oOther.iElapsedTicks;
                 }
 
 #if defined(_HAS_CXX20) && _HAS_CXX20
-                constexpr auto __YYAPI operator<=>(const TimeSpan& _oOther) const noexcept = default;
+                constexpr auto __YYAPI operator<=>(const TimeSpan& _oOther) const noexcept
+                {
+                    return iElapsedTicks <=> _oOther.iElapsedTicks;
+                }
 #else
                 constexpr bool __YYAPI operator<(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal < _oOther.uElapsedInternal;
+                    return iElapsedTicks < _oOther.iElapsedTicks;
                 }
 
                 constexpr bool __YYAPI operator<=(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal <= _oOther.uElapsedInternal;
+                    return iElapsedTicks <= _oOther.iElapsedTicks;
                 }
 
                 constexpr bool __YYAPI operator>=(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal >= _oOther.uElapsedInternal;
+                    return iElapsedTicks >= _oOther.iElapsedTicks;
                 }
 
                 constexpr bool __YYAPI operator>(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal >= _oOther.uElapsedInternal;
+                    return iElapsedTicks >= _oOther.iElapsedTicks;
                 }
 
                 constexpr bool __YYAPI operator!=(const TimeSpan& _oOther) const noexcept
                 {
-                    return uElapsedInternal != _oOther.uElapsedInternal;
+                    return iElapsedTicks != _oOther.iElapsedTicks;
                 }
 #endif
                 constexpr TimeSpan& __YYAPI operator-=(const TimeSpan& _oOther) noexcept
                 {
-                    uElapsedInternal -= _oOther.uElapsedInternal;
+                    iElapsedTicks -= _oOther.iElapsedTicks;
                     return *this;
                 }
 
                 constexpr TimeSpan& __YYAPI operator+=(const TimeSpan& _oOther) noexcept
                 {
-                    uElapsedInternal += _oOther.uElapsedInternal;
+                    iElapsedTicks += _oOther.iElapsedTicks;
                     return *this;
                 }
             };

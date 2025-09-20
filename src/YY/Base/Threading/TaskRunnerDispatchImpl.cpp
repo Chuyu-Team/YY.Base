@@ -320,7 +320,7 @@ namespace YY
                     size_t _cTaskProcessed = 0;
                     for (;;)
                     {
-                        auto _oCurrent = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        auto _oCurrent = TickCount::GetNow();
                         _cTaskProcessed += ProcessingTimerTasks(_oCurrent);
                         _cTaskProcessed += ProcessingPendingTaskQueue();
                         if (YY::Sync::Subtract(&nDispatchTaskRef, int32_t(_cTaskProcessed)) <= 0)

@@ -30,7 +30,7 @@ namespace YY
                 return TaskRunnerStyle::FixedThread | TaskRunnerStyle::Sequenced;
             }
 
-            HRESULT __YYAPI ThreadTaskRunnerImpl::Join(TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut) noexcept
+            HRESULT __YYAPI ThreadTaskRunnerImpl::Join(TimeSpan _nWaitTimeOut) noexcept
             {
                 if (GetCurrent() == this)
                 {
@@ -168,7 +168,7 @@ namespace YY
                         // uPushLock 占用1bit，所以 uWakeupCount += 1 等价于 uWakeupCountAndPushLock += 2
                         if (_uWakeupCount == 0)
                         {
-                            auto _oCurrent = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                            auto _oCurrent = TickCount::GetNow();
                             ProcessingTimerTasks(_oCurrent);
                             if (_uWakeupCountBackup && Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * _uWakeupCountBackup) >= WakeupOnceRaw)
                             {
