@@ -48,7 +48,7 @@ namespace YY
                 _In_reads_bytes_(AddressSize) volatile void* Address,
                 _In_reads_bytes_(AddressSize) void* CompareAddress,
                 _In_ size_t AddressSize,
-                _In_ TimeSpan<TimePrecise::Millisecond> _uMilliseconds = TimeSpan<TimePrecise::Millisecond>::GetMax()) noexcept;
+                _In_ TimeSpan _uMilliseconds = TimeSpan::GetMax()) noexcept;
         }
     } // namespace Base
 

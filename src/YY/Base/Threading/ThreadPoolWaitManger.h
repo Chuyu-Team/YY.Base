@@ -62,7 +62,7 @@ namespace YY
                 /// 返回 true: Entry内任然存在元素。
                 /// 返回 false: Entry 已经为空，可以移除。
                 /// </returns>
-                bool __YYAPI ProcessingTimeoutNolock(_In_ TickCount<TimePrecise::Microsecond> _uCurrentTickCount, _Out_ WaitTaskList* _pPendingTimeout) noexcept
+                bool __YYAPI ProcessingTimeoutNolock(_In_ TickCount _uCurrentTickCount, _Out_ WaitTaskList* _pPendingTimeout) noexcept
                 {
                     while (auto _pWait = GetFirst())
                     {
@@ -89,9 +89,9 @@ namespace YY
                     WaitTaskList oWaitTaskLists[MAXIMUM_WAIT_OBJECTS] = {};
                     volatile uint32_t cWaitHandle = 0;
 
-                    TickCount<TimePrecise::Microsecond> __YYAPI GetWakeupTickCountNolock(const TickCount<TimePrecise::Microsecond> _uTickCount) const noexcept
+                    TickCount __YYAPI GetWakeupTickCountNolock(const TickCount _uTickCount) const noexcept
                     {
-                        auto _uMinimumWakeupTickCount = TickCount<TimePrecise::Microsecond>::GetMax();
+                        auto _uMinimumWakeupTickCount = TickCount::GetMax();
                         for (size_t i = 0; i < cWaitHandle; ++i)
                         {
                             auto& _oWaitTaskList = oWaitTaskLists[i];
@@ -188,7 +188,7 @@ namespace YY
                     else if (WAIT_TIMEOUT == uWaitResult)
                     {
                         WaitTaskList _oDispatchPending;
-                        const auto _uCurrentTickCount = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                        const auto _uCurrentTickCount = TickCount::GetNow();
 
                         for (size_t i = oDefaultWaitBlock.cWaitHandle; i;)
                         {
@@ -328,9 +328,9 @@ namespace YY
                             CloseHandle(hTaskRunnerServerHandle);
                     }
 
-                    TickCount<TimePrecise::Microsecond> __YYAPI GetWakeupTickCountNolock(const TickCount<TimePrecise::Microsecond> _uTickCount) const noexcept
+                    TickCount __YYAPI GetWakeupTickCountNolock(const TickCount _uTickCount) const noexcept
                     {
-                        auto _uMinimumWakeupTickCount = TickCount<TimePrecise::Microsecond>::GetMax();
+                        auto _uMinimumWakeupTickCount = TickCount::GetMax();
                         for (size_t i = 1; i < cWaitHandle; ++i)
                         {
                             auto _pWaitHandleEntry = oWaitHandleEntries[i];
@@ -489,7 +489,7 @@ namespace YY
                                 [this, _pWaitHandleBlock]()
                                 {
                                     uint32_t _cWaitHandle;
-                                    TickCount<TimePrecise::Microsecond> _uWaitWakeupTickCount;
+                                    TickCount _uWaitWakeupTickCount;
 
                                     for (;;)
                                     {
@@ -503,7 +503,7 @@ namespace YY
                                             if (_bTerminate)
                                                 break;
 
-                                            _uWaitWakeupTickCount = _pWaitHandleBlock->GetWakeupTickCountNolock(TickCount<TimePrecise::Microsecond>::GetCurrent());
+                                            _uWaitWakeupTickCount = _pWaitHandleBlock->GetWakeupTickCountNolock(TickCount::GetNow());
                                         }
 
                                         const auto _uResult = WaitForMultipleObjects(_cWaitHandle, _pWaitHandleBlock->hWaitHandles, FALSE, GetWaitTimeSpan(_uWaitWakeupTickCount));
@@ -558,7 +558,7 @@ namespace YY
 
                         {
                             AutoLock<SRWLock> _oDispatchLock(oWaitBlockTaskRunner.oLock);
-                            const auto _uCurrentTickCount = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                            const auto _uCurrentTickCount = TickCount::GetNow();
 
                             for (size_t i = _cWaitHandle; i; )
                             {

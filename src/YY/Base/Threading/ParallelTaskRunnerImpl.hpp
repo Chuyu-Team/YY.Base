@@ -189,7 +189,7 @@ namespace YY
                     return TaskRunnerStyle::None;
                 }
 
-                HRESULT __YYAPI Join(TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut) noexcept override
+                HRESULT __YYAPI Join(TimeSpan _nWaitTimeOut) noexcept override
                 {
                     if (GetCurrent() == this)
                     {

@@ -70,7 +70,7 @@ int main()
     // 向 异步线程1投递一个任务，该任务将在后续执行。
     // 投递的任务只保证在顺序执行，无法保证在同一个物理线程上执行。
     _pAsynTaskRunner->PostDelayTask(
-        TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(100),
+        TimeSpan::FromMilliseconds(100),
         []()
         {
             std::cout << "延迟100ms任务后执行。\n";
@@ -95,7 +95,7 @@ int main()
     // 向 异步线程1投递一个任务，该任务将在后续执行。
     // 投递的任务只保证在顺序执行，无法保证在同一个物理线程上执行。
     _pAsynTaskRunner->PostDelayTask(
-        TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(100),
+        TimeSpan::FromMilliseconds(100),
         []()
         {
             std::cout << "延迟100ms任务后执行。\n";

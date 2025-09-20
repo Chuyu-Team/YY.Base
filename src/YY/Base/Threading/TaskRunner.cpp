@@ -64,7 +64,7 @@ namespace YY
                 }
                 else
                 {
-                    auto _uExpire = TickCount<TimePrecise::Microsecond>::GetCurrent() + uInterval;
+                    auto _uExpire = TickCount::GetNow() + uInterval;
                     if (pfnTimerCallback())
                     {
                         auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get();
@@ -99,9 +99,9 @@ namespace YY
                 return TaskRunnerDispatch::Get()->StartIo();
             }
 
-            HRESULT __YYAPI TaskRunner::PostDelayTask(TimeSpan<TimePrecise::Millisecond> _uAfter, std::function<void(void)>&& _pfnTaskCallback)
+            HRESULT __YYAPI TaskRunner::PostDelayTask(TimeSpan _uAfter, std::function<void(void)>&& _pfnTaskCallback)
             {
-                auto _uExpire = TickCount<TimePrecise::Microsecond>::GetCurrent() + _uAfter;
+                auto _uExpire = TickCount::GetNow() + _uAfter;
                 auto _pTimer = RefPtr<Timer>::Create();
                 if (!_pTimer)
                     return E_OUTOFMEMORY;
@@ -136,7 +136,7 @@ namespace YY
             }
 
 #if defined(_HAS_CXX20) && _HAS_CXX20
-            TaskAwaiter<void> __YYAPI TaskRunner::AsyncDelayTask(TimeSpan<TimePrecise::Millisecond> _uAfter, std::function<void(void)>&& _pfnTaskCallback)
+            TaskAwaiter<void> __YYAPI TaskRunner::AsyncDelayTask(TimeSpan _uAfter, std::function<void(void)>&& _pfnTaskCallback)
             {
                 struct AsyncTaskEntry
                     : public Timer
@@ -201,7 +201,7 @@ namespace YY
                 HRESULT _hr;
                 if (_uAfter.GetInternalValue() > 0)
                 {
-                    _pAsyncTaskEntry->uExpire = TickCount<TimePrecise::Microsecond>::GetCurrent() + _uAfter;
+                    _pAsyncTaskEntry->uExpire = TickCount::GetNow() + _uAfter;
                     _hr = SetTimerInternal(_pAsyncTaskEntry);
                 }
                 else
@@ -245,12 +245,12 @@ namespace YY
                 return _oWorkEntry.hr;
             }
 
-            RefPtr<Timer> __YYAPI TaskRunner::CreateTimer(TimeSpan<TimePrecise::Millisecond> _uInterval, std::function<bool(void)>&& _pfnTaskCallback)
+            RefPtr<Timer> __YYAPI TaskRunner::CreateTimer(TimeSpan _uInterval, std::function<bool(void)>&& _pfnTaskCallback)
             {
                 if (_uInterval.GetMilliseconds() <= 0)
                     return nullptr;
 
-                auto _uCurrent = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                auto _uCurrent = TickCount::GetNow();
                 auto _pTimer = RefPtr<Timer>::Create();
                 if (!_pTimer)
                     return nullptr;
@@ -265,7 +265,7 @@ namespace YY
                 return _pTimer;
             }
 
-            RefPtr<Wait> __YYAPI TaskRunner::CreateWait(HANDLE _hHandle, TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut, std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback)
+            RefPtr<Wait> __YYAPI TaskRunner::CreateWait(HANDLE _hHandle, TimeSpan _nWaitTimeOut, std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback)
             {
                 if (_hHandle == nullptr || _hHandle == INVALID_HANDLE_VALUE)
                     return nullptr;
@@ -279,13 +279,13 @@ namespace YY
 
                 _pWait->hHandle = _hHandle;
                 // >= UINT32_MAX 时认为是无限等待。
-                if (_nWaitTimeOut >= TimeSpan<TimePrecise::Millisecond>::FromMilliseconds(UINT32_MAX))
+                if (_nWaitTimeOut >= TimeSpan::FromMilliseconds(UINT32_MAX))
                 {
-                    _pWait->uTimeOut = TickCount<TimePrecise::Microsecond>::GetMax();
+                    _pWait->uTimeOut = TickCount::GetMax();
                 }
                 else
                 {
-                    _pWait->uTimeOut = TickCount<TimePrecise::Microsecond>::GetCurrent() + _nWaitTimeOut;
+                    _pWait->uTimeOut = TickCount::GetNow() + _nWaitTimeOut;
                 }
 
                 _pWait->pfnWaitTaskCallback = std::move(_pfnTaskCallback);
@@ -309,7 +309,7 @@ namespace YY
                     return PostTaskInternal(std::move(_pTask));
 
                 // 现在的时间已经比过期时间大，那么立即触发任务，降低延迟
-                auto _uCurrent = TickCount<TimePrecise::Microsecond>::GetCurrent();
+                auto _uCurrent = TickCount::GetNow();
                 if (_pTask->uExpire <= _uCurrent)
                 {
                     _pTask->uExpire = _uCurrent;

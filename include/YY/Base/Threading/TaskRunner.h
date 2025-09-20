@@ -100,10 +100,10 @@ namespace YY
                 std::function<bool(void)> pfnTimerCallback;
 
                 // 任务到期时间
-                TickCount<TimePrecise::Microsecond> uExpire;
+                TickCount uExpire;
 
                 // 任务重复间隔，如果为0，那么任务不会重复
-                TimeSpan<TimePrecise::Millisecond> uInterval;
+                TimeSpan uInterval;
 
                 Timer* pNext = nullptr;
 
@@ -113,7 +113,7 @@ namespace YY
             struct Wait : public TaskEntry
             {
                 HANDLE hHandle = nullptr;
-                TickCount<TimePrecise::Microsecond> uTimeOut;
+                TickCount uTimeOut;
                 DWORD uWaitResult = WAIT_FAILED;
 
                 std::function<bool(DWORD _uWaitResult)> pfnWaitTaskCallback;
@@ -317,7 +317,7 @@ namespace YY
                 /// <param name="_pfnTaskCallback">需要异步执行回调。</param>
                 /// <returns></returns>
                 HRESULT __YYAPI PostDelayTask(
-                    _In_ TimeSpan<TimePrecise::Millisecond> _uAfter,
+                    _In_ TimeSpan _uAfter,
                     _In_ std::function<void(void)>&& _pfnTaskCallback);
 
                 /// <summary>
@@ -335,7 +335,7 @@ namespace YY
                 /// <param name="_pfnLambdaCallback">需要异步执行的 Lambda 表达式</param>
                 /// <returns>TaskAwaiter<void></returns>
                 TaskAwaiter<void> __YYAPI AsyncDelayTask(
-                    _In_ TimeSpan<TimePrecise::Millisecond> _uAfter,
+                    _In_ TimeSpan _uAfter,
                     _In_ std::function<void(void)>&& _pfnTaskCallback);
 #endif
 
@@ -343,7 +343,7 @@ namespace YY
                 TaskAwaiter<void> __YYAPI AsyncTask(
                     _In_ std::function<void(void)>&& _pfnTaskCallback)
                 {
-                    return AsyncDelayTask(TimeSpan<TimePrecise::Millisecond>(), std::move(_pfnTaskCallback));
+                    return AsyncDelayTask(TimeSpan(), std::move(_pfnTaskCallback));
                 }
 #endif
 
@@ -366,7 +366,7 @@ namespace YY
                 /// * 如果后续不在需要执行定时器，请返回 false。
                 /// </param>
                 /// <returns></returns>
-                RefPtr<Timer> __YYAPI CreateTimer(_In_ TimeSpan<TimePrecise::Millisecond> _uInterval, _In_ std::function<bool(void)>&& _pfnTaskCallback);
+                RefPtr<Timer> __YYAPI CreateTimer(_In_ TimeSpan _uInterval, _In_ std::function<bool(void)>&& _pfnTaskCallback);
 
                 /// <summary>
                 /// 监听指定句柄状态。如果句柄处于有信号状态则调用 _pfnTaskCallback。如果同一个句柄多次调用CreateWait，对应的_pfnTaskCallback也将多次调用。
@@ -391,17 +391,17 @@ namespace YY
                 /// </returns>
                 RefPtr<Wait> __YYAPI CreateWait(
                     _In_ HANDLE _hHandle,
-                    _In_ TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut,
+                    _In_ TimeSpan _nWaitTimeOut,
                     _In_ std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback);
 
                 RefPtr<Wait> __YYAPI CreateWait(
                     _In_ HANDLE _hHandle,
                     _In_ std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback)
                 {
-                    return CreateWait(_hHandle, TimeSpan<TimePrecise::Millisecond>::GetMax(), std::move(_pfnTaskCallback));
+                    return CreateWait(_hHandle, TimeSpan::GetMax(), std::move(_pfnTaskCallback));
                 }
 
-                virtual HRESULT __YYAPI Join(_In_ TimeSpan<TimePrecise::Millisecond> _nWaitTimeOut = TimeSpan<TimePrecise::Millisecond>::GetMax()) noexcept = 0;
+                virtual HRESULT __YYAPI Join(_In_ TimeSpan _nWaitTimeOut = TimeSpan::GetMax()) noexcept = 0;
 
                 virtual HRESULT __YYAPI Interrupt() noexcept = 0;
 
