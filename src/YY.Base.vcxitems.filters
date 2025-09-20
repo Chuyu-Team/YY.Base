@@ -73,6 +73,9 @@
     <Filter Include="资源文件">
       <UniqueIdentifier>{f6e926ce-f565-470c-8c1f-a29246361bc9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\YY\Base\Time">
+      <UniqueIdentifier>{c1cc024f-013f-4121-ac07-1c108bb052ec}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Strings\StringTransform.cpp">
@@ -113,6 +116,12 @@
     </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.Windows.cc">
       <Filter>源文件\YY\Base\Threading\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Time\TimeZone.cpp">
+      <Filter>源文件\YY\Base\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Time\DataTime.cpp">
+      <Filter>源文件\YY\Base\Time</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -284,8 +293,14 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Functional\Bind.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\DataTime.h">
+      <Filter>头文件\YY\Base\Time</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h">
       <Filter>头文件\YY\Base\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h">
+      <Filter>头文件\YY\Base\Time</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

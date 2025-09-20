@@ -14,6 +14,9 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Time\TimeZone.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Strings\StringTransform.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -47,6 +50,9 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadTaskRunnerImpl.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Time\DataTime.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Utils\FileInfo.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -55,6 +61,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Array.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Span.h" />
@@ -95,6 +102,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\Common.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\TickCount.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\TimeSpan.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\DataTime.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\ComObjectImpl.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\FileInfo.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\MathUtils.h" />

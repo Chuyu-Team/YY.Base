@@ -122,4 +122,199 @@
             </ArrayItems>
         </Expand>
     </Type>
+
+    <Type Name="YY::Base::Time::UtcDataTime">
+        <Intrinsic Name="MicrosecondsPerMillisecond" Expression="YY::Base::Time::kMicrosecondsPerMillisecond * kTicksPerMicrosecond" />
+        <Intrinsic Name="MicrosecondsPerSecond" Expression="MicrosecondsPerMillisecond() * YY::Base::Time::kMillisecondsPerSecond" />
+        <Intrinsic Name="MicrosecondsPerMinute" Expression="MicrosecondsPerSecond() * YY::Base::Time::kSecondsPerMinute" />
+        <Intrinsic Name="MicrosecondsPerHour" Expression="MicrosecondsPerMinute() * YY::Base::Time::kMinutesPerHour" />
+        <Intrinsic Name="MicrosecondsPerDay" Expression="MicrosecondsPerHour() * YY::Base::Time::kHoursPerDay" />
+
+        <Intrinsic Name="GetNanosecond" Expression="uTicks % 10 * 100" />
+        <Intrinsic Name="GetMicrosecond" Expression="uTicks / 10 % 1000" />
+        <Intrinsic Name="GetMillisecond" Expression="uTicks / MicrosecondsPerMillisecond() % YY::Base::Time::kMillisecondsPerSecond" />
+        <Intrinsic Name="GetSecond" Expression="uTicks / MicrosecondsPerSecond() % YY::Base::Time::kSecondsPerMinute" />
+        <Intrinsic Name="GetMinute" Expression="uTicks / MicrosecondsPerMinute() % YY::Base::Time::kMinutesPerHour" />
+        <Intrinsic Name="GetHour" Expression="uTicks / MicrosecondsPerHour() % YY::Base::Time::kHoursPerDay" />
+        <Intrinsic Name="GetDays" Expression="uTicks / MicrosecondsPerDay()" />
+        <Intrinsic Name="GetDayOfWeek" Expression="(GetDays() + 0) % 7" />
+
+        <Intrinsic Name="CalculateDayOfYearPer4Years" Expression="Days &lt; 365 * 4 ? Days % 365 : 365">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+        
+        <Intrinsic Name="CalculateDayOfYearPer100Years" Expression="CalculateDayOfYearPer4Years(Days &lt; 1461 * 25 ? Days % 1461 : 1461)">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+        
+        <Intrinsic Name="CalculateDayOfYearPer400Years" Expression="CalculateDayOfYearPer100Years(Days &lt; 36524 * 4 ?  Days % 36524 : 36524)">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="GetDayOfYear" Expression="CalculateDayOfYearPer400Years(GetDays() % 146097)" />
+
+        <Intrinsic Name="CalculateMonth" Expression="Days &lt;31 ? 1 : (Days &lt;59 ? 2:(Days &lt;90 ? 3:(Days &lt;120 ? 4:(Days &lt;151 ? 5:(Days &lt;181 ? 6:(Days &lt;212 ? 7:(Days &lt;243 ? 8:(Days &lt;273 ? 9:(Days &lt;304 ? 10:(Days &lt;334 ? 11:12))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+        
+        <Intrinsic Name="CalculateMonthForLeapYear" Expression="Days &lt;31 ? 1 : (Days &lt;60 ? 2:(Days &lt;91 ? 3:(Days &lt;121 ? 4:(Days &lt;152 ? 5:(Days &lt;182 ? 6:(Days &lt;213 ? 7:(Days &lt;244 ? 8:(Days &lt;274 ? 9:(Days &lt;305 ? 10:(Days &lt;335 ? 11:12))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="IsLeapYear" Expression="(Year%100 == 0) ? (Year % 400 ==0) : (Year % 4 == 0)">
+            <Parameter Name="Year" Type="int"/>
+        </Intrinsic>
+                
+        <Intrinsic Name="GetYear" Expression="1601 + (GetDays() - GetDayOfYear()) / 365" />
+        
+        <Intrinsic Name="GetMonth" Expression="IsLeapYear(GetYear()) ? CalculateMonthForLeapYear(GetDayOfYear()) : CalculateMonth(GetDayOfYear())" />
+
+        <Intrinsic Name="CalculateDay" Expression="Days &lt;31 ? (Days + 1) : (Days &lt;59 ? (Days - 31 + 1):(Days &lt;90 ? (Days - 59 + 1):(Days &lt;120 ? (Days - 90 + 1):(Days &lt;151 ? (Days - 120 + 1):(Days &lt;181 ? (Days - 151 + 1):(Days &lt;212 ? (Days - 181 + 1):(Days &lt;243 ? (Days - 212 + 1):(Days &lt;273 ? (Days - 243 + 1):(Days &lt;304 ? (Days - 273 + 1):(Days &lt;334 ? (Days - 304 + 1):(Days - 334 + 1)))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="CalculateDayForLeapYear" Expression="Days &lt;31 ? (Days + 1) : (Days &lt;60 ? (Days - 31 + 1):(Days &lt;91 ? (Days - 60 + 1):(Days &lt;121 ? (Days - 91 + 1):(Days &lt;152 ? (Days - 121 + 1):(Days &lt;182 ? (Days - 152 + 1):(Days &lt;212 ? (Days - 182 + 1):(Days &lt;244 ? (Days - 213 + 1):(Days &lt;274 ? (Days - 244 + 1):(Days &lt;305 ? (Days - 274 + 1):(Days &lt;335 ? (Days - 305 + 1):(Days - 335 + 1)))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="GetDay" Expression="IsLeapYear(GetYear()) ? CalculateDayForLeapYear(GetDayOfYear()) : CalculateDay(GetDayOfYear())" />
+
+        <DisplayString  Condition="uTicks >= 0x8000000000000000">{{无效时间}}</DisplayString>
+        <DisplayString>{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d}Z</DisplayString>
+
+        <Expand>
+            <Item Name="[Year]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetYear()</Item>
+            <Item Name="[Month]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMonth()</Item>
+            <Item Name="[Day]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetDay()</Item>
+            <Item Name="[Hour]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetHour()</Item>
+            <Item Name="[Minute]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMinute()</Item>
+            <Item Name="[Second]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetSecond()</Item>
+            <Item Name="[Millisecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMillisecond()</Item>
+            <Item Name="[Microsecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMicrosecond()</Item>
+            <Item Name="[Nanosecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetNanosecond()</Item>
+            <Item Name="[Ticks]" ExcludeView="simple">uTicks</Item>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 0">
+                <DisplayString>星期一</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 1">
+                <DisplayString>星期二</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 2">
+                <DisplayString>星期三</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 3">
+                <DisplayString>星期四</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 4">
+                <DisplayString>星期五</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 5">
+                <DisplayString>星期六</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 6">
+                <DisplayString>星期日</DisplayString>
+            </Synthetic>
+        </Expand>
+    </Type>
+    
+    <Type Name="YY::Base::Time::LocalDataTime">
+        <Intrinsic Name="MicrosecondsPerMillisecond" Expression="YY::Base::Time::kMicrosecondsPerMillisecond * kTicksPerMicrosecond" />
+        <Intrinsic Name="MicrosecondsPerSecond" Expression="MicrosecondsPerMillisecond() * YY::Base::Time::kMillisecondsPerSecond" />
+        <Intrinsic Name="MicrosecondsPerMinute" Expression="MicrosecondsPerSecond() * YY::Base::Time::kSecondsPerMinute" />
+        <Intrinsic Name="MicrosecondsPerHour" Expression="MicrosecondsPerMinute() * YY::Base::Time::kMinutesPerHour" />
+        <Intrinsic Name="MicrosecondsPerDay" Expression="MicrosecondsPerHour() * YY::Base::Time::kHoursPerDay" />
+
+        <Intrinsic Name="GetNanosecond" Expression="uTicks % 10 * 100" />
+        <Intrinsic Name="GetMicrosecond" Expression="uTicks / 10 % 1000" />
+        <Intrinsic Name="GetMillisecond" Expression="uTicks / MicrosecondsPerMillisecond() % YY::Base::Time::kMillisecondsPerSecond" />
+        <Intrinsic Name="GetSecond" Expression="uTicks / MicrosecondsPerSecond() % YY::Base::Time::kSecondsPerMinute" />
+        <Intrinsic Name="GetMinute" Expression="uTicks / MicrosecondsPerMinute() % YY::Base::Time::kMinutesPerHour" />
+        <Intrinsic Name="GetHour" Expression="uTicks / MicrosecondsPerHour() % YY::Base::Time::kHoursPerDay" />
+        <Intrinsic Name="GetDays" Expression="uTicks / MicrosecondsPerDay()" />
+        <Intrinsic Name="GetDayOfWeek" Expression="(GetDays() + 0) % 7" />
+
+        <Intrinsic Name="CalculateDayOfYearPer4Years" Expression="Days &lt; 365 * 4 ? Days % 365 : 365">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="CalculateDayOfYearPer100Years" Expression="CalculateDayOfYearPer4Years(Days &lt; 1461 * 25 ? Days % 1461 : 1461)">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="CalculateDayOfYearPer400Years" Expression="CalculateDayOfYearPer100Years(Days &lt; 36524 * 4 ?  Days % 36524 : 36524)">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="GetDayOfYear" Expression="CalculateDayOfYearPer400Years(GetDays() % 146097)" />
+
+        <Intrinsic Name="CalculateMonth" Expression="Days &lt;31 ? 1 : (Days &lt;59 ? 2:(Days &lt;90 ? 3:(Days &lt;120 ? 4:(Days &lt;151 ? 5:(Days &lt;181 ? 6:(Days &lt;212 ? 7:(Days &lt;243 ? 8:(Days &lt;273 ? 9:(Days &lt;304 ? 10:(Days &lt;334 ? 11:12))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="CalculateMonthForLeapYear" Expression="Days &lt;31 ? 1 : (Days &lt;60 ? 2:(Days &lt;91 ? 3:(Days &lt;121 ? 4:(Days &lt;152 ? 5:(Days &lt;182 ? 6:(Days &lt;213 ? 7:(Days &lt;244 ? 8:(Days &lt;274 ? 9:(Days &lt;305 ? 10:(Days &lt;335 ? 11:12))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="IsLeapYear" Expression="(Year%100 == 0) ? (Year % 400 ==0) : (Year % 4 == 0)">
+            <Parameter Name="Year" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="GetYear" Expression="1601 + (GetDays() - GetDayOfYear()) / 365" />
+
+        <Intrinsic Name="GetMonth" Expression="IsLeapYear(GetYear()) ? CalculateMonthForLeapYear(GetDayOfYear()) : CalculateMonth(GetDayOfYear())" />
+
+        <Intrinsic Name="CalculateDay" Expression="Days &lt;31 ? (Days + 1) : (Days &lt;59 ? (Days - 31 + 1):(Days &lt;90 ? (Days - 59 + 1):(Days &lt;120 ? (Days - 90 + 1):(Days &lt;151 ? (Days - 120 + 1):(Days &lt;181 ? (Days - 151 + 1):(Days &lt;212 ? (Days - 181 + 1):(Days &lt;243 ? (Days - 212 + 1):(Days &lt;273 ? (Days - 243 + 1):(Days &lt;304 ? (Days - 273 + 1):(Days &lt;334 ? (Days - 304 + 1):(Days - 334 + 1)))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="CalculateDayForLeapYear" Expression="Days &lt;31 ? (Days + 1) : (Days &lt;60 ? (Days - 31 + 1):(Days &lt;91 ? (Days - 60 + 1):(Days &lt;121 ? (Days - 91 + 1):(Days &lt;152 ? (Days - 121 + 1):(Days &lt;182 ? (Days - 152 + 1):(Days &lt;212 ? (Days - 182 + 1):(Days &lt;244 ? (Days - 213 + 1):(Days &lt;274 ? (Days - 244 + 1):(Days &lt;305 ? (Days - 274 + 1):(Days &lt;335 ? (Days - 305 + 1):(Days - 335 + 1)))))))))))">
+            <Parameter Name="Days" Type="int"/>
+        </Intrinsic>
+
+        <Intrinsic Name="GetDay" Expression="IsLeapYear(GetYear()) ? CalculateDayForLeapYear(GetDayOfYear()) : CalculateDay(GetDayOfYear())" />
+
+        <DisplayString  Condition="uTicks >= 0x8000000000000000">{{无效时间}}</DisplayString>
+        <DisplayString Condition="pTimeZone.p != 0">{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d} {pTimeZone.p->StandardName,sub}</DisplayString>
+        <DisplayString>{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d} 默认时区</DisplayString>
+
+        <Expand>
+            <Item Name="[Year]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetYear()</Item>
+            <Item Name="[Month]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMonth()</Item>
+            <Item Name="[Day]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetDay()</Item>
+            <Item Name="[Hour]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetHour()</Item>
+            <Item Name="[Minute]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMinute()</Item>
+            <Item Name="[Second]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetSecond()</Item>
+            <Item Name="[Millisecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMillisecond()</Item>
+            <Item Name="[Microsecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetMicrosecond()</Item>
+            <Item Name="[Nanosecond]" ExcludeView="simple" Condition="uTicks &lt; 0x8000000000000000ULL">GetNanosecond()</Item>
+            <Item Name="[Ticks]" ExcludeView="simple">uTicks</Item>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 0">
+                <DisplayString>星期一</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 1">
+                <DisplayString>星期二</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 2">
+                <DisplayString>星期三</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 3">
+                <DisplayString>星期四</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 4">
+                <DisplayString>星期五</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 5">
+                <DisplayString>星期六</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[DayOfWeek]" Condition="uTicks &lt; 0x8000000000000000ULL &amp;&amp; GetDayOfWeek() == 6">
+                <DisplayString>星期日</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[StandardName]" Condition="pTimeZone.p != 0">
+                <DisplayString>{pTimeZone.p->StandardName,sub}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[StandardName]" Condition="pTimeZone.p == 0">
+                <DisplayString>默认时区</DisplayString>
+            </Synthetic>
+        </Expand>
+    </Type>
 </AutoVisualizer>
