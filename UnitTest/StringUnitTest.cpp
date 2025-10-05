@@ -11,6 +11,35 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace YY;
 
+namespace Microsoft::VisualStudio::CppUnitTestFramework
+{
+    template<>
+    inline std::wstring ToString<YY::uString>(const YY::uString& _oValue)
+    {
+        std::wstring _szResult;
+        _szResult += L'{';
+
+        _szResult.append(_oValue.GetData(), _oValue.GetLength());
+
+        _szResult += L'}';
+
+        return _szResult;
+    }
+
+    template<>
+    inline std::wstring ToString<YY::uStringView>(const YY::uStringView& _oValue)
+    {
+        std::wstring _szResult;
+        _szResult += L'{';
+
+        _szResult.append(_oValue.GetData(), _oValue.GetLength());
+
+        _szResult += L'}';
+
+        return _szResult;
+    }
+}
+
 namespace UnitTest
 {
 	TEST_CLASS(StringUnitTest)
@@ -157,6 +186,119 @@ namespace UnitTest
 			}
 		}
 
-		
+        TEST_METHOD(Remove)
+        {
+            YY::uString _szTemp(_S("0123456789"));
+
+            _szTemp.Remove(0, 2);
+            Assert::AreEqual(_szTemp, _S("23456789"));
+
+            _szTemp.Remove(2, 2);
+            Assert::AreEqual(_szTemp, _S("236789"));
+
+            _szTemp.Remove(5, 2);
+            Assert::AreEqual(_szTemp, _S("23678"));
+
+            _szTemp.Remove(5, 2);
+            Assert::AreEqual(_szTemp, _S("23678"));
+
+            _szTemp.Remove(0);
+            Assert::AreEqual(_szTemp, _S(""));
+        }
+
+        TEST_METHOD(Substring)
+        {
+            YY::uString _szTemp(_S("0123456789"));
+
+            Assert::AreEqual(_szTemp.Substring(0, 2), _S("01"));
+            Assert::AreEqual(_szTemp.Substring(1, 2), _S("12"));
+            Assert::AreEqual(_szTemp.Substring(8, 2), _S("89"));
+            Assert::AreEqual(_szTemp.Substring(9, 2), _S("9"));
+            Assert::AreEqual(_szTemp.Substring(10, 2), _S(""));
+        }
+
+        TEST_METHOD(SplitAndTakeFirst)
+        {
+            YY::uString _szTemp(_S("01|34|6789"));
+
+            size_t _uNextIndex = 0;
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uString::char_t('|'), _uNextIndex, &_uNextIndex), _S("01"));
+            Assert::AreEqual(_uNextIndex, size_t(3));
+
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uString::char_t('|'), _uNextIndex, &_uNextIndex), _S("34"));
+            Assert::AreEqual(_uNextIndex, size_t(6));
+
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uString::char_t('|'), _uNextIndex, &_uNextIndex), _S("6789"));
+            Assert::AreEqual(_uNextIndex, size_t(10));
+        }
 	};
+
+    TEST_CLASS(StringView)
+    {
+    public:
+
+        TEST_METHOD(IndexOf)
+        {
+            YY::uStringView _sTest(_S("0123456789"));
+            {
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('0')), size_t(0));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('7')), size_t(7));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('9')), size_t(9));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('a')), YY::kuInvalidIndex);
+
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('0'), 1), YY::kuInvalidIndex);
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('7'), 1), size_t(7));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('9'), 1), size_t(9));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('a'), 1), YY::kuInvalidIndex);
+
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('0'), 1, 7), YY::kuInvalidIndex);
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('7'), 1, 6), YY::kuInvalidIndex);
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('7'), 1, 7), size_t(7));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('9'), 1, 8), YY::kuInvalidIndex);
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('9'), 1, 9), size_t(9));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('9'), 1, 10), size_t(9));
+                Assert::AreEqual(_sTest.IndexOf(YY::uStringView::char_t('a'), 1), YY::kuInvalidIndex);
+
+            }
+
+            {
+                Assert::AreEqual(_sTest.IndexOf(_S("012")), size_t(0));
+                Assert::AreEqual(_sTest.IndexOf(_S("123")), size_t(1));
+                Assert::AreEqual(_sTest.IndexOf(_S("789")), size_t(7));
+                Assert::AreEqual(_sTest.IndexOf(_S("890")), YY::kuInvalidIndex);
+
+
+                Assert::AreEqual(_sTest.IndexOf(_S("12"), 0, 2), YY::kuInvalidIndex);
+                Assert::AreEqual(_sTest.IndexOf(_S("12"), 0, 3), size_t(1));
+                Assert::AreEqual(_sTest.IndexOf(_S("12"), 1, 3), size_t(1));
+            }
+        }
+
+        TEST_METHOD(IndexOfAny)
+        {
+            YY::uStringView _sTest(_S("0123456789"));
+
+            {
+                Assert::AreEqual(_sTest.IndexOfAny(YY::uStringView::FromStaticString(_S("0123456789"))), size_t(0));
+                Assert::AreEqual(_sTest.IndexOfAny(YY::uStringView::FromStaticString(_S("123456789"))), size_t(1));
+                Assert::AreEqual(_sTest.IndexOfAny(YY::uStringView::FromStaticString(_S("9"))), size_t(9));
+                Assert::AreEqual(_sTest.IndexOfAny(YY::uStringView::FromStaticString(_S("abcd"))), YY::kuInvalidIndex);
+            }
+        }
+
+        TEST_METHOD(SplitAndTakeFirst)
+        {
+            YY::uStringView _szTemp(_S("01|34|6789"));
+
+            size_t _uNextIndex = 0;
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uStringView::char_t('|'), _uNextIndex, &_uNextIndex), YY::uStringView::FromStaticString(_S("01")));
+            Assert::AreEqual(_uNextIndex, size_t(3));
+
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uStringView::char_t('|'), _uNextIndex, &_uNextIndex), YY::uStringView::FromStaticString(_S("34")));
+            Assert::AreEqual(_uNextIndex, size_t(6));
+
+            Assert::AreEqual(_szTemp.SplitAndTakeFirst(YY::uStringView::char_t('|'), _uNextIndex, &_uNextIndex), YY::uStringView::FromStaticString(_S("6789")));
+            Assert::AreEqual(_uNextIndex, size_t(10));
+        }
+    };
 }

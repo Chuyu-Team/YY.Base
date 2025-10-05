@@ -154,6 +154,10 @@ namespace YY
                 using char_t = _char_t;
                 using StringView_t = StringView<char_t, _eEncoding>;
 
+                using Char = _char_t;
+                using StringView = StringView<char_t, _eEncoding>;
+                using ValueType = _char_t;
+
             private:
                 constexpr static Encoding eEncoding = _eEncoding;
 
@@ -196,12 +200,17 @@ namespace YY
                         throw Exception(_S("StringBase构造失败。"), _hr);
                 }
 
-                StringBase(const StringView_t& _szSrc)
+                StringBase(const StringView& _szSrc)
                     : szString(StringData::GetEmtpyStringData()->GetStringBuffer())
                 {
                     auto _hr = SetString(_szSrc.GetConstString(), _szSrc.GetSize());
                     if (FAILED(_hr))
                         throw Exception(_S("StringBase构造失败。"), _hr);
+
+                    if (eEncoding == Encoding::ANSI)
+                    {
+                        SetANSIEncoding(_szSrc.GetEncoding());
+                    }
                 }
 
                 StringBase(const StringBase& _szSrc)
@@ -254,6 +263,11 @@ namespace YY
                 }
 
                 _Ret_z_ const char_t* __YYAPI GetConstString() const
+                {
+                    return szString;
+                }
+
+                _Ret_z_ const char_t* __YYAPI GetData() const
                 {
                     return szString;
                 }
@@ -468,7 +482,7 @@ namespace YY
                     return S_OK;
                 }
 
-                HRESULT __YYAPI AppendString(const StringView_t& _szSrc)
+                HRESULT __YYAPI AppendString(const StringView& _szSrc)
                 {
                     return AppendString(_szSrc.GetConstString(), _szSrc.GetSize());
                 }
@@ -538,14 +552,20 @@ namespace YY
                     return S_OK;
                 }
 
+                StringView __YYAPI GetStringView() const
+                {
+                    auto _pInternalData = GetInternalStringData();
+                    return StringView(szString, _pInternalData->uSize, eEncoding != Encoding::ANSI ? eEncoding : Encoding(_pInternalData->eEncoding));
+                }
+
                 _Ret_z_ __YYAPI operator const char_t* () const
                 {
                     return szString;
                 }
 
-                __YYAPI operator StringView_t() const
+                __YYAPI operator StringView() const
                 {
-                    return StringView_t(szString, GetSize());
+                    return GetStringView();
                 }
 
                 char_t __YYAPI operator[](_In_ size_t _uIndex) const
@@ -627,7 +647,7 @@ namespace YY
                     return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) == 0;
                 }
 
-                bool __YYAPI operator==(const StringView_t& _szSrc) const
+                bool __YYAPI operator==(const StringView& _szSrc) const
                 {
                     if (this->GetSize() != _szSrc.GetSize())
                         return false;
@@ -643,7 +663,7 @@ namespace YY
                     return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) != 0;
                 }
 
-                bool __YYAPI operator!=(const StringView_t& _szSrc) const
+                bool __YYAPI operator!=(const StringView& _szSrc) const
                 {
                     if (this->GetSize() == _szSrc.GetSize())
                         return false;
@@ -661,21 +681,398 @@ namespace YY
                     return this->GetConstString() + this->GetSize();
                 }
 
-                int32_t __YYAPI CompareI(_In_ StringView<char_t, eEncoding> _Other) const
+                inline int32_t __YYAPI CompareI(_In_ StringView _Other) const
                 {
-                    auto _iLeftSize = GetSize();
-                    auto _iRightSize = _Other.GetSize();
-                    auto _iMinSize = (std::min)(_iLeftSize, _iRightSize);
+                    return GetStringView().CompareI(_Other);
+                }
 
-                    uint_t _uIndex = 0;
-                    for (; _uIndex != _iMinSize; ++_uIndex)
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符在字符串中的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                inline size_t __YYAPI IndexOf(char_t _ch) const
+                {
+                    return GetStringView().IndexOf(_ch);
+                }
+
+                /// <summary>
+                /// 查找子字符串在当前字符串中的首次出现位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串视图。</param>
+                /// <returns>如果找到，返回子字符串首次出现的索引；否则返回 kuInvalidIndex。</returns>
+                inline size_t __YYAPI IndexOf(StringView _sStr) const
+                {
+                    return GetStringView().IndexOf(_sStr);
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的字符集的 StringView 对象。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                inline size_t __YYAPI IndexOfAny(StringView _sAnyOfChar) const
+                {
+                    return GetStringView().IndexOfAny(_sAnyOfChar);
+                }
+
+                /// <summary>
+                /// 查找字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                inline size_t __YYAPI LastIndexOf(char_t _ch) const
+                {
+                    return GetStringView().LastIndexOf(_ch);
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <returns>如果找到，返回子字符串最后一次出现的起始索引；否则返回 kuInvalidIndex。</returns>
+                inline size_t __YYAPI LastIndexOf(StringView _sStr) const
+                {
+                    return GetStringView().LastIndexOf(_sStr);
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符集。</param>
+                /// <returns>返回最后一次出现的字符的索引，如果未找到则返回 kuInvalidIndex。</returns>
+                inline size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar) const
+                {
+                    return GetStringView().LastIndexOfAny(_sAnyOfChar);
+                }
+
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">搜索的最大字符数。</param>
+                /// <returns>如果找到字符，则返回其索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().IndexOf(_ch, _uIndex, _uCount);
+                }
+
+                /// <summary>
+                /// 查找指定字符串在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引，默认为 0。</param>
+                /// <param name="_uCount">搜索的最大范围。</param>
+                /// <returns>如果找到子串，则返回其在字符串中的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().IndexOf(_sStr, _uIndex, _uCount);
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符的字符串视图。</param>
+                /// <param name="_uIndex">搜索的起始索引。</param>
+                /// <param name="_uCount">要搜索的字符数，默认为字符串的最大长度。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI IndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().IndexOfAny(_sAnyOfChar, _uIndex, _uCount);
+                }
+
+                /// <summary>
+                /// 查找指定字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">开始向左查找的起始索引，默认为字符串末尾。</param>
+                /// <param name="_uCount">要查找的最大字符数，默认为整个字符串。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；否则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().LastIndexOf(_ch, _uIndex, _uCount);
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">要搜索的字符数。</param>
+                /// <returns>如果找到，则返回子字符串最后一次出现的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().LastIndexOf(_sStr, _uIndex, _uCount);
+                }
+
+                /// <summary>
+                /// 查找字符串中指定字符集最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">要查找的字符集。</param>
+                /// <param name="_uIndex">开始向前查找的起始索引。</param>
+                /// <param name="_uCount">要查找的字符数。</param>
+                /// <returns>返回最后一次出现指定字符集中的任意字符的索引；如果未找到，则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    return GetStringView().LastIndexOfAny(_sAnyOfChar, _uIndex, _uCount);
+                }
+
+                StringBase& __YYAPI Remove(size_t _uStartIndex, size_t _uRemoveCount = (std::numeric_limits<size_t>::max)())
+                {
+                    auto _pInternalStringData = GetInternalStringData();
+                    if (_pInternalStringData->uSize <= _uStartIndex)
                     {
-                        int32_t _result = CharUpperAsASCII(szString[_uIndex]) - CharUpperAsASCII(_Other[_uIndex]);
-                        if (_result != 0)
-                            return _result;
+                        return *this;
                     }
 
-                    return (int32_t)int_t(_iLeftSize - _iRightSize);
+                    _uRemoveCount = (std::min)(_uRemoveCount, _pInternalStringData->uSize - _uStartIndex);
+                    if(_uRemoveCount == 0)
+                    {
+                        return *this;
+                    }
+
+                    const auto _uNewSize = _pInternalStringData->uSize - _uRemoveCount;
+                    if (_uNewSize == 0)
+                    {
+                        Clear();
+                        return *this;
+                    }
+
+                    if (_pInternalStringData->IsShared())
+                    {
+                        // 因为是共享缓冲区，所以我们需要复制
+                        StringBase _szTmp;
+                        auto _pBuffer = _szTmp.LockBuffer(_uNewSize);
+                        memcpy(_pBuffer, szString, _uStartIndex * sizeof(szString[0]));
+                        memcpy(_pBuffer + _uStartIndex, szString + _uStartIndex + _uRemoveCount, (_uNewSize - _uStartIndex) * sizeof(szString[0]));
+                        _szTmp.UnlockBuffer(_uNewSize);
+
+                        if (eEncoding == Encoding::ANSI)
+                        {
+                            _szTmp.SetANSIEncoding(Encoding(_pInternalStringData->eEncoding));
+                        }
+
+                        Attach(_szTmp.Detach());
+                        return *this;
+                    }
+                    else
+                    {
+                        auto _pBuffer = LockBuffer(_uNewSize);
+                        memmove(_pBuffer + _uStartIndex, _pBuffer + _uStartIndex + _uRemoveCount, (_uNewSize - _uStartIndex) * sizeof(_pBuffer[0]));
+                        UnlockBuffer(_uNewSize);
+                        return *this;
+                    }
+                }
+
+                StringBase& __YYAPI Slice(size_t _uRemoveStart, size_t _uRemoveEnd = 0u)
+                {
+                    if (_uRemoveStart + _uRemoveEnd >= GetLength())
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        if (_uRemoveEnd)
+                        {
+                            Remove(GetLength() - _uRemoveEnd, _uRemoveEnd);
+                        }
+
+                        if (_uRemoveStart)
+                        {
+                            Remove(0, _uRemoveStart);
+                        }
+                    }
+
+                    return *this;
+                }
+
+                StringBase __YYAPI Substring(size_t _uStartIndex) const
+                {
+                    if(_uStartIndex == 0)
+                        return *this;
+
+                    return StringBase(GetStringView().Substring(_uStartIndex));
+                }
+
+                StringBase __YYAPI Substring(size_t _uStartIndex, size_t _cchLength) const
+                {
+                    if(_uStartIndex == 0 && _cchLength >= GetLength())
+                        return *this;
+
+                    return StringBase(GetStringView().Substring(_uStartIndex, _cchLength));
+                }
+
+                StringBase& __YYAPI TrimStart(StringView _sTrimChars)
+                {
+                    if(_sTrimChars.IsEmpty())
+                        return *this;
+
+                    size_t _uRemoveCount = 0;
+                    const size_t _uLength = GetLength();
+
+                    for (; _uRemoveCount!= _uLength;)
+                    {
+                        if (_sTrimChars.IndexOf(szString[_uRemoveCount]) != kuInvalidIndex)
+                        {
+                            ++_uRemoveCount;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    Remove(0, _uRemoveCount);
+                    return *this;
+                }
+
+                StringBase& __YYAPI TrimEnd(StringView _sTrimChars)
+                {
+                    if (_sTrimChars.IsEmpty())
+                        return *this;
+
+                    size_t _cchNewLength = GetLength();
+                    while (_cchNewLength)
+                    {
+                        if (_sTrimChars.IndexOf(szString[_cchNewLength - 1]) != kuInvalidIndex)
+                        {
+                            --_cchNewLength;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    if (_cchNewLength == 0)
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        Remove(_cchNewLength - 1, GetLength() - _cchNewLength);
+                    }
+
+                    return *this;
+                }
+
+                StringBase& __YYAPI Trim(StringView _sTrimChars)
+                {
+                    TrimEnd(_sTrimChars);
+                    TrimStart(_sTrimChars);
+                    return *this;
+                }
+
+                /// <summary>
+                /// 按指定分隔符拆分字符串，并返回第一个子串。
+                /// </summary>
+                /// <param name="_chSplit">用于拆分字符串的分隔字符。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分隔符的位置指针。</param>
+                /// <returns>返回从起始位置到第一个分隔符之间的子串。如果未找到分隔符，则返回整个字符串。</returns>
+                StringBase __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
+                {
+                    const auto _uIndex = IndexOf(_chSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
+                    {
+                        if (_puNextSplitIndex)
+                        {
+                            *_puNextSplitIndex = GetLength();
+                        }
+
+                        return Substring(_uSplitIndex);
+                    }
+                    else
+                    {
+                        if (_puNextSplitIndex)
+                        {
+                            *_puNextSplitIndex = _uIndex + 1;
+                        }
+
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
+
+                    }
+                }
+
+                /// <summary>
+                /// 根据指定分隔符，从字符串中分割并返回第一个子串。
+                /// </summary>
+                /// <param name="_sSplit">用于分割的字符串视图。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分割点的索引。</param>
+                /// <returns>分割后第一个子串。如果未找到分隔符，则返回原字符串。</returns>
+                StringBase __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
+                {
+                    const auto _uIndex = IndexOf(_sSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
+                    {
+                        if (_puNextSplitIndex)
+                        {
+                            *_puNextSplitIndex = GetLength();
+                        }
+
+                        return Substring(_uSplitIndex);
+                    }
+                    else
+                    {
+                        if (_puNextSplitIndex)
+                        {
+                            *_puNextSplitIndex = _uIndex + _sSplit.GetLength();
+                        }
+
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
+                    }
+                }
+
+                /// <summary>
+                /// 判断字符是否包含在对象中。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果对象中包含该字符，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI Contains(char_t _ch) const
+                {
+                    return IndexOf(_ch) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断字符串视图是否包含指定的子字符串。
+                /// </summary>
+                /// <param name="_szStr">要查找的子字符串视图。</param>
+                /// <returns>如果包含指定子字符串，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI Contains(StringView _szStr) const
+                {
+                    return IndexOf(_szStr) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断字符串是否包含指定字符集中的任意一个字符。
+                /// </summary>
+                /// <param name="_sAnyOfChar">要查找的字符集，类型为 StringView。</param>
+                /// <returns>如果字符串包含字符集中的任意一个字符，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI ContainsAny(StringView _sAnyOfChar) const
+                {
+                    return IndexOfAny(_sAnyOfChar) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串视图开头。
+                /// </summary>
+                /// <param name="_sStr">要检查的字符串视图，判断当前字符串是否以其开头。</param>
+                /// <returns>如果当前字符串以指定字符串视图开头，则返回 true；否则返回 false。</returns>
+                bool __YYAPI StartsWith(StringView _sStr) const
+                {
+                    return GetStringView().StartsWith(_sStr);
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串结尾。
+                /// </summary>
+                /// <param name="_sStr">要检查的结尾字符串视图。</param>
+                /// <returns>如果当前字符串以 _sStr 结尾，则返回 true；否则返回 false。</returns>
+                bool __YYAPI EndsWith(StringView _sStr) const
+                {
+                    return GetStringView().EndsWith(_sStr);
                 }
 
                 struct StringData
