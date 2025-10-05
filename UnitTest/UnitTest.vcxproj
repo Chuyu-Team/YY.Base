@@ -188,6 +188,7 @@
     <ClCompile Include="BitMapUnitTest.cpp" />
     <ClCompile Include="DynamicArrayUnitTest.cpp" />
     <ClCompile Include="ObserverPtrUnitTest.cpp" />
+    <ClCompile Include="SpanUnitTest.cpp" />
     <ClCompile Include="StringUnitTest.cpp" />
     <ClCompile Include="TaskRunnerUnitTest.cpp" />
   </ItemGroup>
