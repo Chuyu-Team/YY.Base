@@ -141,12 +141,18 @@
     <ClCompile Include="BindUnitTest.cpp">
       <Filter>单元测试</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\YY\Base\Time\DataTime.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SpanUnitTest.cpp">
+      <Filter>单元测试</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\YY\Base\Containers\Array.h">
       <Filter>头文件\YY\Base\Containers</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\YY\Base\Containers\ArrayView.h">
+    <ClInclude Include="..\include\YY\Base\Containers\Span.h">
       <Filter>头文件\YY\Base\Containers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\YY\Base\Containers\BitMap.h">
@@ -311,8 +317,8 @@
     <ClInclude Include="..\include\YY\Base\Functional\Bind.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\YY\Base\Time\UtcTime.h">
-      <Filter>头文件\YY\Base\Time</Filter>
+    <ClInclude Include="..\include\YY\Base\Time\DataTime.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
