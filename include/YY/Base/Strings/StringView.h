@@ -23,6 +23,8 @@ namespace YY
             {
             public:
                 using char_t = _char_t;
+                using Char = _char_t;
+                using ValueType = _char_t;
 
             private:
                 // 不一定指向 0结尾！！
@@ -41,6 +43,13 @@ namespace YY
                     : sString(_szSrc)
                     , cchString(_szSrc ? _cchSrc : 0)
                 {
+                }
+
+                explicit constexpr StringView(_In_reads_opt_(_cchSrc) const char_t* _szSrc, _In_ size_t _cchSrc, _In_ Encoding _eEncoding) noexcept
+                    : sString(_szSrc)
+                    , cchString(_szSrc ? _cchSrc : 0)
+                {
+                    assert(_eEncoding == eEncoding);
                 }
 
                 StringView(_In_opt_z_ const char_t* _szSrc)
@@ -87,6 +96,12 @@ namespace YY
 
                 inline _Ret_notnull_ _Post_readable_size_(cchString)
                 const char_t* __YYAPI GetConstString() const
+                {
+                    return sString;
+                }
+
+                inline _Ret_notnull_ _Post_readable_size_(cchString)
+                const char_t* __YYAPI GetData() const
                 {
                     return sString;
                 }
@@ -228,41 +243,275 @@ namespace YY
                     }
                 }
 
-                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const noexcept
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符在字符串中的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(char_t _ch) const
                 {
-                    for (; _uIndex < GetSize(); ++_uIndex)
+                    const auto _sEnd = sString + GetLength();
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
                     {
-                        if (sString[_uIndex] == _ch)
+                        if (*_sItem == _ch)
                         {
-                            return _uIndex;
+                            return _sItem - sString;
                         }
                     }
 
-                    return -1;
+                    return kuInvalidIndex;
                 }
 
-                size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const noexcept
+                /// <summary>
+                /// 查找子字符串在当前字符串中的首次出现位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串视图。</param>
+                /// <returns>如果找到，返回子字符串首次出现的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(StringView _sStr) const
                 {
                     if (_sStr.IsEmpty())
-                        return -1;
+                        return kuInvalidIndex;
 
-                    if (_uIndex + _sStr.GetLength() < GetSize())
-                    {
-                        return size_t(-1);
-                    }
+                    if (GetLength() < _sStr.GetLength())
+                        return kuInvalidIndex;
 
-                    auto _sStart = sString + _uIndex;
-                    const auto _sEnd = sString + GetSize() - _sStr.GetLength();
-                    const auto _cbCmp = _sStr.GetSize() * sizeof(_sStr[0]);
-                    for (; _sStart <= _sEnd; ++_sStart)
+                    const auto _cbStr = _sStr.GetLength() * sizeof(_sStr[0]);
+                    const auto _sEnd = sString + GetLength() - _sStr.GetLength() + 1;
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
                     {
-                        if (memcmp(_sStart, _sStr.GetConstString(), _cbCmp) == 0)
+                        if (memcmp(_sItem, _sStr.GetConstString(), _cbStr) == 0)
                         {
-                            return _uIndex;
+                            return _sItem - sString;
                         }
                     }
 
-                    return -1;
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的字符集的 StringView 对象。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI IndexOfAny(StringView _sAnyOfChar) const
+                {
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _sEnd = sString + GetLength();
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
+                    {
+                        if (_sAnyOfChar.IndexOf(*_sItem) != kuInvalidIndex)
+                        {
+                            return _sItem - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(char_t _ch) const
+                {
+                    auto _sEnd = sString + GetLength();
+                    while (_sEnd != sString)
+                    {
+                        --_sEnd;
+                        if (*_sEnd == _ch)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <returns>如果找到，返回子字符串最后一次出现的起始索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(StringView _sStr) const
+                {
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (GetLength() < _sStr.GetLength())
+                        return kuInvalidIndex;
+
+                    const auto _cbStr = _sStr.GetLength() * sizeof(_sStr[0]);
+                    auto _sEnd = sString + GetLength() - _sStr.GetLength() + 1;
+                    for (; _sEnd != sString; )
+                    {
+                        --_sEnd;
+
+                        if (memcmp(_sEnd, _sStr.GetConstString(), _cbStr) == 0)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符集。</param>
+                /// <returns>返回最后一次出现的字符的索引，如果未找到则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar) const
+                {
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    auto _sEnd = sString + GetLength();
+                    while (_sEnd != sString)
+                    {
+                        --_sEnd;
+                        if (_sAnyOfChar.IndexOf(*_sEnd) != kuInvalidIndex)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">搜索的最大字符数。</param>
+                /// <returns>如果找到字符，则返回其索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if(IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOf(_ch);
+                    if(_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符串在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引，默认为 0。</param>
+                /// <param name="_uCount">搜索的最大范围。</param>
+                /// <returns>如果找到子串，则返回其在字符串中的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOf(_sStr);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符的字符串视图。</param>
+                /// <param name="_uIndex">搜索的起始索引。</param>
+                /// <param name="_uCount">要搜索的字符数，默认为字符串的最大长度。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI IndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOfAny(_sAnyOfChar);
+                    if(_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">开始向左查找的起始索引，默认为字符串末尾。</param>
+                /// <param name="_uCount">要查找的最大字符数，默认为整个字符串。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；否则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOf(_ch);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">要搜索的字符数。</param>
+                /// <returns>如果找到，则返回子字符串最后一次出现的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOf(_sStr);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中指定字符集最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">要查找的字符集。</param>
+                /// <param name="_uIndex">开始向前查找的起始索引。</param>
+                /// <param name="_uCount">要查找的字符数。</param>
+                /// <returns>返回最后一次出现指定字符集中的任意字符的索引；如果未找到，则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if(_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOfAny(_sAnyOfChar);
+                    if(_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                inline size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const
+                {
+                    return IndexOf(_ch, _uIndex);
+                }
+
+                inline size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const
+                {
+                    return IndexOf(_sStr, _uIndex);
                 }
 
                 StringView& __YYAPI Slice(size_t _uRemoveStart, size_t _uRemoveEnd = 0u) noexcept
@@ -289,7 +538,7 @@ namespace YY
                     }
                     else
                     {
-                        return StringView();
+                        return StringView(sString + cchString, 0);
                     }
                 }
 
@@ -297,19 +546,22 @@ namespace YY
                 {
                     if (_uStartIndex < cchString)
                     {
-                        return StringView(sString + _uStartIndex, min(cchString - _uStartIndex, _cchLength));
+                        return StringView(sString + _uStartIndex, (std::min)(cchString - _uStartIndex, _cchLength));
                     }
                     else
                     {
-                        return StringView();
+                        return StringView(sString + cchString, 0);
                     }
                 }
 
                 StringView& __YYAPI TrimStart(StringView _sTrimChars)
                 {
+                    if(_sTrimChars.IsEmpty())
+                        return *this;
+
                     while (cchString)
                     {
-                        if (_sTrimChars.Find(sString[0]) != -1)
+                        if (_sTrimChars.IndexOf(sString[0]) != kuInvalidIndex)
                         {
                             ++sString;
                             --cchString;
@@ -325,12 +577,12 @@ namespace YY
 
                 StringView& __YYAPI TrimEnd(StringView _sTrimChars)
                 {
-                    if(_sTrimChars.GetLength() == 0)
+                    if(_sTrimChars.IsEmpty())
                         return *this;
 
                     while (cchString)
                     {
-                        if (_sTrimChars.Find(sString[cchString - 1]) != -1)
+                        if (_sTrimChars.IndexOf(sString[cchString - 1]) != kuInvalidIndex)
                         {
                             --cchString;
                         }
@@ -349,54 +601,155 @@ namespace YY
                     return *this;
                 }
 
-                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                /// <summary>
+                /// 按指定分隔符拆分字符串，并返回第一个子串。
+                /// </summary>
+                /// <param name="_chSplit">用于分割字符串的字符。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分隔符的位置索引。</param>
+                /// <returns>分割后第一个子串的 StringView。如果未找到分隔符，则返回整个字符串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
                 {
-                    auto _uIndex = Find(_chSplit);
-                    if (_uIndex == size_t(-1))
+                    const auto _uIndex = IndexOf(_chSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
                     {
-                        StringView _sResult = *this;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = StringView();
+                            *_puNextSplitIndex = GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex);
                     }
                     else
                     {
-                        StringView _sResult = Substring(0, _uIndex);;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = Substring(_uIndex + 1);
+                            *_puNextSplitIndex = _uIndex + 1;
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
                     }
                 }
 
-                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                /// <summary>
+                /// 根据指定分隔符，从字符串中分割并返回第一个子串。
+                /// </summary>
+                /// <param name="_sSplit">用于分割的字符串分隔符。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分割点的索引。</param>
+                /// <returns>分割后第一个子串。如果未找到分隔符，则返回原字符串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
                 {
-                    auto _uIndex = Find(_sSplit);
-                    if (_uIndex == size_t(-1))
+                    const auto _uIndex = IndexOf(_sSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
                     {
-                        StringView _sResult = *this;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = StringView();
+                            *_puNextSplitIndex = GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex);
                     }
                     else
                     {
-                        StringView _sResult = Substring(0, _uIndex);;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = Substring(_uIndex + _sSplit.GetLength());
+                            *_puNextSplitIndex = _uIndex + _sSplit.GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
                     }
+                }
+
+                /// <summary>
+                /// 将字符串按指定分隔符拆分，并返回第一个子串。
+                /// </summary>
+                /// <param name="_chSplit">用于拆分字符串的分隔字符。</param>
+                /// <param name="_psRemaining">（可选）指向接收剩余字符串的指针。如果提供，将被设置为分隔符后的剩余部分。</param>
+                /// <returns>分隔符前的第一个子串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    size_t _uNextSplitIndex;
+                    auto _sResult = SplitAndTakeFirst(_chSplit, 0, &_uNextSplitIndex);
+                    if (_psRemaining)
+                    {
+                        *_psRemaining = Substring(_uNextSplitIndex);
+                    }
+
+                    return _sResult;
+                }
+
+                /// <summary>
+                /// 分割字符串并返回第一个子串。
+                /// </summary>
+                /// <param name="_sSplit">用于分割的字符串视图。</param>
+                /// <param name="_psRemaining">（可选）指向接收剩余字符串视图的指针。</param>
+                /// <returns>分割后得到的第一个子串的字符串视图。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    size_t _uNextSplitIndex;
+                    auto _sResult = SplitAndTakeFirst(_sSplit, 0, &_uNextSplitIndex);
+                    if (_psRemaining)
+                    {
+                        *_psRemaining = Substring(_uNextSplitIndex);
+                    }
+                    return _sResult;
+                }
+
+                /// <summary>
+                /// 判断字符是否包含在对象中。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果对象包含该字符，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI Contains(char_t _ch) const
+                {
+                    return IndexOf(_ch) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断字符串视图是否包含指定的子字符串。
+                /// </summary>
+                /// <param name="_szStr">要查找的子字符串视图。</param>
+                /// <returns>如果包含指定的子字符串，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI Contains(StringView _szStr) const
+                {
+                    return IndexOf(_szStr) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断当前字符串视图是否包含指定的任意字符。
+                /// </summary>
+                /// <param name="_oAnyOfValue">要查找的字符集合，类型为 StringView。</param>
+                /// <returns>如果当前字符串视图包含集合中的任意字符，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI ContainsAny(StringView _oAnyOfValue) const
+                {
+                    return IndexOfAny(_oAnyOfValue) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串视图开头。
+                /// </summary>
+                /// <param name="_sStr">要检查的字符串视图。</param>
+                /// <returns>如果当前字符串以 _sStr 开头，则返回 true；否则返回 false。</returns>
+                bool __YYAPI StartsWith(StringView _sStr) const
+                {
+                    if (GetLength() < _sStr.GetLength())
+                        return false;
+
+                    return Substring(0, _sStr.GetLength()) == _sStr;
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串结尾。
+                /// </summary>
+                /// <param name="_sStr">要检查的结尾字符串视图。</param>
+                /// <returns>如果当前字符串以 _sStr 结尾，则返回 true；否则返回 false。</returns>
+                bool __YYAPI EndsWith(StringView _sStr) const
+                {
+                    if (GetLength() < _sStr.GetLength())
+                        return false;
+
+                    return Substring(GetLength() - _sStr.GetLength(), _sStr.GetLength()) == _sStr;
                 }
             };
 
@@ -405,6 +758,8 @@ namespace YY
             {
             public:
                 using char_t = YY::Base::achar_t;
+                using Char = YY::Base::achar_t;
+                using ValueType = YY::Base::achar_t;
 
             private:
                 // 不一定指向 0结尾！！
@@ -462,6 +817,12 @@ namespace YY
 
                 inline _Ret_notnull_ _Post_readable_size_(cchString)
                 const char_t* __YYAPI GetConstString() const
+                {
+                    return sString;
+                }
+
+                inline _Ret_notnull_ _Post_readable_size_(cchString)
+                const char_t* __YYAPI GetData() const
                 {
                     return sString;
                 }
@@ -603,41 +964,275 @@ namespace YY
                     }
                 }
 
-                size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const noexcept
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符在字符串中的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(char_t _ch) const
                 {
-                    for (; _uIndex < GetSize(); ++_uIndex)
+                    const auto _sEnd = sString + GetLength();
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
                     {
-                        if (sString[_uIndex] == _ch)
+                        if (*_sItem == _ch)
                         {
-                            return _uIndex;
+                            return _sItem - sString;
                         }
                     }
 
-                    return -1;
+                    return kuInvalidIndex;
                 }
 
-                size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const noexcept
+                /// <summary>
+                /// 查找子字符串在当前字符串中的首次出现位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串视图。</param>
+                /// <returns>如果找到，返回子字符串首次出现的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(StringView _sStr) const
                 {
                     if (_sStr.IsEmpty())
-                        return -1;
+                        return kuInvalidIndex;
 
-                    if (_uIndex + _sStr.GetLength() < GetSize())
-                    {
-                        return size_t(-1);
-                    }
+                    if (GetLength() < _sStr.GetLength())
+                        return kuInvalidIndex;
 
-                    auto _sStart = sString + _uIndex;
-                    const auto _sEnd = sString + GetSize() - _sStr.GetLength();
-                    const auto _cbCmp = _sStr.GetSize() * sizeof(_sStr[0]);
-                    for (; _sStart <= _sEnd; ++_sStart)
+                    const auto _cbStr = _sStr.GetLength() * sizeof(_sStr[0]);
+                    const auto _sEnd = sString + GetLength() - _sStr.GetLength() + 1;
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
                     {
-                        if (memcmp(_sStart, _sStr.GetConstString(), _cbCmp) == 0)
+                        if (memcmp(_sItem, _sStr.GetConstString(), _cbStr) == 0)
                         {
-                            return _uIndex;
+                            return _sItem - sString;
                         }
                     }
 
-                    return -1;
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的字符集的 StringView 对象。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI IndexOfAny(StringView _sAnyOfChar) const
+                {
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _sEnd = sString + GetLength();
+                    for (auto _sItem = sString; _sItem != _sEnd; ++_sItem)
+                    {
+                        if (_sAnyOfChar.IndexOf(*_sItem) != kuInvalidIndex)
+                        {
+                            return _sItem - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；如果未找到，返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(char_t _ch) const
+                {
+                    auto _sEnd = sString + GetLength();
+                    while (_sEnd != sString)
+                    {
+                        --_sEnd;
+                        if (*_sEnd == _ch)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <returns>如果找到，返回子字符串最后一次出现的起始索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(StringView _sStr) const
+                {
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (GetLength() < _sStr.GetLength())
+                        return kuInvalidIndex;
+
+                    const auto _cbStr = _sStr.GetLength() * sizeof(_sStr[0]);
+                    auto _sEnd = sString + GetLength() - _sStr.GetLength() + 1;
+                    for (; _sEnd != sString; )
+                    {
+                        --_sEnd;
+
+                        if (memcmp(_sEnd, _sStr.GetConstString(), _cbStr) == 0)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符集。</param>
+                /// <returns>返回最后一次出现的字符的索引，如果未找到则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar) const
+                {
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    auto _sEnd = sString + GetLength();
+                    while (_sEnd != sString)
+                    {
+                        --_sEnd;
+                        if (_sAnyOfChar.IndexOf(*_sEnd) != kuInvalidIndex)
+                        {
+                            return _sEnd - sString;
+                        }
+                    }
+
+                    return kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">搜索的最大字符数。</param>
+                /// <returns>如果找到字符，则返回其索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOf(_ch);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符串在此实例中的首次出现位置。 搜索从指定字符位置开始，并检查指定数量的字符位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引，默认为 0。</param>
+                /// <param name="_uCount">搜索的最大范围。</param>
+                /// <returns>如果找到子串，则返回其在字符串中的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI IndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOf(_sStr);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中任意指定字符集首次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">包含要查找的任意字符的字符串视图。</param>
+                /// <param name="_uIndex">搜索的起始索引。</param>
+                /// <param name="_uCount">要搜索的字符数，默认为字符串的最大长度。</param>
+                /// <returns>返回第一个匹配字符的索引，如果未找到则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI IndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).IndexOfAny(_sAnyOfChar);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定字符在字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <param name="_uIndex">开始向左查找的起始索引，默认为字符串末尾。</param>
+                /// <param name="_uCount">要查找的最大字符数，默认为整个字符串。</param>
+                /// <returns>如果找到，返回字符最后一次出现的索引；否则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOf(char_t _ch, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOf(_ch);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找指定子字符串在当前字符串中最后一次出现的位置。
+                /// </summary>
+                /// <param name="_sStr">要查找的子字符串。</param>
+                /// <param name="_uIndex">搜索的起始索引位置。</param>
+                /// <param name="_uCount">要搜索的字符数。</param>
+                /// <returns>如果找到，则返回子字符串最后一次出现的索引；否则返回 kuInvalidIndex。</returns>
+                size_t __YYAPI LastIndexOf(StringView _sStr, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (IsEmpty())
+                        return kuInvalidIndex;
+
+                    if (_sStr.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOf(_sStr);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                /// <summary>
+                /// 查找字符串中指定字符集最后一次出现的位置。注意：字符集中的任意字符匹配即可。
+                /// </summary>
+                /// <param name="_sAnyOfChar">要查找的字符集。</param>
+                /// <param name="_uIndex">开始向前查找的起始索引。</param>
+                /// <param name="_uCount">要查找的字符数。</param>
+                /// <returns>返回最后一次出现指定字符集中的任意字符的索引；如果未找到，则返回无效索引（kuInvalidIndex）。</returns>
+                size_t __YYAPI LastIndexOfAny(StringView _sAnyOfChar, size_t _uIndex, size_t _uCount = (std::numeric_limits<size_t>::max)()) const
+                {
+                    if (_sAnyOfChar.IsEmpty())
+                        return kuInvalidIndex;
+
+                    const auto _uSubIndex = Substring(_uIndex, _uCount).LastIndexOfAny(_sAnyOfChar);
+                    if (_uSubIndex == kuInvalidIndex)
+                        return kuInvalidIndex;
+
+                    return _uIndex + _uSubIndex;
+                }
+
+                inline size_t __YYAPI Find(char_t _ch, size_t _uIndex = 0) const
+                {
+                    return IndexOf(_ch, _uIndex);
+                }
+
+                inline size_t __YYAPI Find(StringView _sStr, size_t _uIndex = 0) const
+                {
+                    return IndexOf(_sStr, _uIndex);
                 }
 
                 StringView& __YYAPI Slice(size_t _uRemoveStart, size_t _uRemoveEnd = 0u) noexcept
@@ -660,11 +1255,11 @@ namespace YY
                 {
                     if (_uStartIndex < cchString)
                     {
-                        return StringView(sString + _uStartIndex, cchString - _uStartIndex);
+                        return StringView(sString + _uStartIndex, cchString - _uStartIndex, GetEncoding());
                     }
                     else
                     {
-                        return StringView();
+                        return StringView(sString + cchString, 0, GetEncoding());
                     }
                 }
 
@@ -672,19 +1267,22 @@ namespace YY
                 {
                     if (_uStartIndex < cchString)
                     {
-                        return StringView(sString + _uStartIndex, min(cchString - _uStartIndex, _cchLength));
+                        return StringView(sString + _uStartIndex, (std::min)(cchString - _uStartIndex, _cchLength), GetEncoding());
                     }
                     else
                     {
-                        return StringView();
+                        return StringView(sString + cchString, 0, GetEncoding());
                     }
                 }
 
                 StringView& __YYAPI TrimStart(StringView _sTrimChars)
                 {
+                    if (_sTrimChars.IsEmpty())
+                        return *this;
+
                     while (cchString)
                     {
-                        if (_sTrimChars.Find(sString[0]) != -1)
+                        if (_sTrimChars.IndexOf(sString[0]) != kuInvalidIndex)
                         {
                             ++sString;
                             --cchString;
@@ -700,9 +1298,12 @@ namespace YY
 
                 StringView& __YYAPI TrimEnd(StringView _sTrimChars)
                 {
+                    if (_sTrimChars.IsEmpty())
+                        return *this;
+
                     while (cchString)
                     {
-                        if (_sTrimChars.Find(sString[cchString - 1]) != -1)
+                        if (_sTrimChars.IndexOf(sString[cchString - 1]) != kuInvalidIndex)
                         {
                             --cchString;
                         }
@@ -721,54 +1322,155 @@ namespace YY
                     return *this;
                 }
 
-                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                /// <summary>
+                /// 按指定分隔符拆分字符串，并返回第一个子串。
+                /// </summary>
+                /// <param name="_chSplit">用于分割字符串的字符。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分隔符的位置索引。</param>
+                /// <returns>分割后第一个子串的 StringView。如果未找到分隔符，则返回整个字符串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
                 {
-                    auto _uIndex = Find(_chSplit);
-                    if (_uIndex == size_t(-1))
+                    const auto _uIndex = IndexOf(_chSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
                     {
-                        StringView _sResult = *this;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = StringView();
+                            *_puNextSplitIndex = GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex);
                     }
                     else
                     {
-                        StringView _sResult = Substring(0, _uIndex);;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = Substring(_uIndex + 1);
+                            *_puNextSplitIndex = _uIndex + 1;
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
                     }
                 }
 
-                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                /// <summary>
+                /// 根据指定分隔符，从字符串中分割并返回第一个子串。
+                /// </summary>
+                /// <param name="_sSplit">用于分割的字符串分隔符。</param>
+                /// <param name="_uSplitIndex">开始查找分隔符的位置（默认为0）。</param>
+                /// <param name="_puNextSplitIndex">可选参数，用于接收下一个分割点的索引。</param>
+                /// <returns>分割后第一个子串。如果未找到分隔符，则返回原字符串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _In_ size_t _uSplitIndex = 0, _Out_opt_ size_t* _puNextSplitIndex = nullptr) const
                 {
-                    auto _uIndex = Find(_sSplit);
-                    if (_uIndex == size_t(-1))
+                    const auto _uIndex = IndexOf(_sSplit, _uSplitIndex);
+                    if (_uIndex == kuInvalidIndex)
                     {
-                        StringView _sResult = *this;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = StringView();
+                            *_puNextSplitIndex = GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex);
                     }
                     else
                     {
-                        StringView _sResult = Substring(0, _uIndex);;
-                        if (_psRemaining)
+                        if (_puNextSplitIndex)
                         {
-                            *_psRemaining = Substring(_uIndex + _sSplit.GetLength());
+                            *_puNextSplitIndex = _uIndex + _sSplit.GetLength();
                         }
 
-                        return _sResult;
+                        return Substring(_uSplitIndex, _uIndex - _uSplitIndex);
                     }
+                }
+
+                /// <summary>
+                /// 将字符串按指定分隔符拆分，并返回第一个子串。
+                /// </summary>
+                /// <param name="_chSplit">用于拆分字符串的分隔字符。</param>
+                /// <param name="_psRemaining">（可选）指向接收剩余字符串的指针。如果提供，将被设置为分隔符后的剩余部分。</param>
+                /// <returns>分隔符前的第一个子串。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ char_t _chSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    size_t _uNextSplitIndex;
+                    auto _sResult = SplitAndTakeFirst(_chSplit, 0, &_uNextSplitIndex);
+                    if (_psRemaining)
+                    {
+                        *_psRemaining = Substring(_uNextSplitIndex);
+                    }
+
+                    return _sResult;
+                }
+
+                /// <summary>
+                /// 分割字符串并返回第一个子串。
+                /// </summary>
+                /// <param name="_sSplit">用于分割的字符串视图。</param>
+                /// <param name="_psRemaining">（可选）指向接收剩余字符串视图的指针。</param>
+                /// <returns>分割后得到的第一个子串的字符串视图。</returns>
+                StringView __YYAPI SplitAndTakeFirst(_In_ StringView _sSplit, _Out_opt_ StringView* _psRemaining = nullptr) const
+                {
+                    size_t _uNextSplitIndex;
+                    auto _sResult = SplitAndTakeFirst(_sSplit, 0, &_uNextSplitIndex);
+                    if (_psRemaining)
+                    {
+                        *_psRemaining = Substring(_uNextSplitIndex);
+                    }
+                    return _sResult;
+                }
+
+                /// <summary>
+                /// 判断字符是否包含在对象中。
+                /// </summary>
+                /// <param name="_ch">要查找的字符。</param>
+                /// <returns>如果字符存在则返回 true，否则返回 false。</returns>
+                inline bool __YYAPI Contains(char_t _ch) const
+                {
+                    return IndexOf(_ch) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断字符串视图是否包含指定的子字符串。
+                /// </summary>
+                /// <param name="_szStr">要查找的子字符串视图。</param>
+                /// <returns>如果包含指定子字符串，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI Contains(StringView _szStr) const
+                {
+                    return IndexOf(_szStr) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断字符串是否包含指定字符集中的任意字符。
+                /// </summary>
+                /// <param name="_sAnyOfChar">要查找的字符集，类型为 StringView。</param>
+                /// <returns>如果字符串包含字符集中的任意字符，则返回 true；否则返回 false。</returns>
+                inline bool __YYAPI ContainsAny(StringView _sAnyOfChar) const
+                {
+                    return IndexOfAny(_sAnyOfChar) != kuInvalidIndex;
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串视图开头。
+                /// </summary>
+                /// <param name="_sStr">要检查的字符串视图。</param>
+                /// <returns>如果当前字符串以 _sStr 开头，则返回 true；否则返回 false。</returns>
+                bool __YYAPI StartsWith(StringView _sStr) const
+                {
+                    if (GetLength() < _sStr.GetLength())
+                        return false;
+
+                    return Substring(0, _sStr.GetLength()) == _sStr;
+                }
+
+                /// <summary>
+                /// 判断当前字符串是否以指定字符串结尾。
+                /// </summary>
+                /// <param name="_sStr">要检查的结尾字符串视图。</param>
+                /// <returns>如果当前字符串以 _sStr 结尾，则返回 true；否则返回 false。</returns>
+                bool __YYAPI EndsWith(StringView _sStr) const
+                {
+                    if (GetLength() < _sStr.GetLength())
+                        return false;
+
+                    return Substring(GetLength() - _sStr.GetLength(), _sStr.GetLength()) == _sStr;
                 }
             };
 

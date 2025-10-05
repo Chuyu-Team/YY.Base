@@ -8,6 +8,7 @@
 #pragma once
 #include <stdint.h>
 #include <cstddef>
+#include <limits>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -214,6 +215,9 @@ namespace YY
 
 // 返回bit位数，注意：一个byte不一定是 8bit，但是 uint32_t 一定是32bit。
 #define YY_bitsizeof(_Type) (sizeof(_Type) * 32 * sizeof(byte_t) / sizeof(uint32_t))
+
+        constexpr size_t kuInvalidIndex = (std::numeric_limits<size_t>::max)();
+
     } // namespace Base
     
     using namespace YY::Base;
