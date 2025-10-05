@@ -194,7 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\YY\Base\Containers\Array.h" />
-    <ClInclude Include="..\include\YY\Base\Containers\ArrayView.h" />
+    <ClInclude Include="..\include\YY\Base\Containers\Span.h" />
     <ClInclude Include="..\include\YY\Base\Containers\BitMap.h" />
     <ClInclude Include="..\include\YY\Base\Containers\ConstructorPolicy.h" />
     <ClInclude Include="..\include\YY\Base\Containers\DoublyLinkedList.h" />

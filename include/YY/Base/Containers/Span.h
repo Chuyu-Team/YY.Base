@@ -11,27 +11,27 @@ namespace YY
         namespace Containers
         {
             template<typename _Type>
-            class ArrayView
+            class Span
             {
             private:
                 _Type* pData;
                 uint_t cData;
 
             public:
-                ArrayView()
+                Span()
                     : pData(nullptr)
                     , cData(0)
                 {
                 }
 
-                ArrayView(_Type* _pData, uint_t _cData)
+                Span(_Type* _pData, uint_t _cData)
                     : pData(_pData)
                     , cData(_pData ? _cData : 0)
                 {
                 }
 
                 template<uint_t _uArrayCount>
-                ArrayView(_Type (&_Array)[_uArrayCount])
+                Span(_Type (&_Array)[_uArrayCount])
                     : pData(_Array)
                     , cData(_uArrayCount)
                 {
