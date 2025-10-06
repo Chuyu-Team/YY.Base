@@ -15,6 +15,7 @@ namespace UnitTest
     TEST_CLASS(AsyncFile)
     {
     public:
+#if defined(_HAS_CXX20) && _HAS_CXX20
         static Coroutine<void> ReadFileCoroutine()
         {
             wchar_t _szFilePath[512] = {};
@@ -31,7 +32,9 @@ namespace UnitTest
 
             co_return;
         }
+#endif
 
+#if defined(_HAS_CXX20) && _HAS_CXX20
         TEST_METHOD(异步读取文件)
         {
             auto _pTaskRunner = SequencedTaskRunner::Create();
@@ -76,5 +79,6 @@ namespace UnitTest
                 Assert::AreEqual(_szBufferSrc, _szBufferAsyncReadFile);
             }
         }
+#endif
     };
 }

@@ -10,6 +10,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 		readme.md = readme.md
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "YY.Base", "src\YY.Base.vcxitems", "{39A3A518-C7CA-4780-BC2E-2704723A58A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -32,5 +34,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {425EB61D-B01D-4005-A741-D2A95A5EAF24}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		src\YY.Base.vcxitems*{1723fd3c-92bd-e27e-67a3-92babfb90e1a}*SharedItemsImports = 4
+		src\YY.Base.vcxitems*{39a3a518-c7ca-4780-bc2e-2704723a58a5}*SharedItemsImports = 9
 	EndGlobalSection
 EndGlobal

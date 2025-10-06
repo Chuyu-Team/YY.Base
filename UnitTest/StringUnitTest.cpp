@@ -1,4 +1,5 @@
 ﻿#include "CppUnitTest.h"
+#include "ToStringHelper.h"
 
 #include <atlstr.h>
 #include <Windows.h>
@@ -10,35 +11,6 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace YY;
-
-namespace Microsoft::VisualStudio::CppUnitTestFramework
-{
-    template<>
-    inline std::wstring ToString<YY::uString>(const YY::uString& _oValue)
-    {
-        std::wstring _szResult;
-        _szResult += L'{';
-
-        _szResult.append(_oValue.GetData(), _oValue.GetLength());
-
-        _szResult += L'}';
-
-        return _szResult;
-    }
-
-    template<>
-    inline std::wstring ToString<YY::uStringView>(const YY::uStringView& _oValue)
-    {
-        std::wstring _szResult;
-        _szResult += L'{';
-
-        _szResult.append(_oValue.GetData(), _oValue.GetLength());
-
-        _szResult += L'}';
-
-        return _szResult;
-    }
-}
 
 namespace UnitTest
 {
@@ -57,7 +29,7 @@ namespace UnitTest
 
 
 
-				NString Tmp2(_TEST_TEXT);
+				NString Tmp2(aString(_TEST_TEXT));
 				Assert::AreEqual(Tmp2.GetSize(), _countof(_TEST_TEXT) - 1);
 				Assert::IsTrue(Tmp2.GetEncoding() == Encoding::ANSI);
 				Assert::IsTrue(memcmp(*(void**)&Tmp2, _TEST_TEXT, sizeof(_TEST_TEXT)) == 0);
@@ -72,7 +44,7 @@ namespace UnitTest
 				Assert::IsTrue(memcmp(Tmp.GetConstString(), _TEST_TEXT, sizeof(_TEST_TEXT)) == 0);
 
 
-				NString Tmp2(_TEST_TEXT);
+				NString Tmp2(u8String(_TEST_TEXT));
 				Assert::AreEqual(Tmp2.GetSize(), _countof(_TEST_TEXT) - 1);
 				Assert::IsTrue(Tmp2.GetEncoding() == Encoding::UTF8);
 				Assert::IsTrue(memcmp(*(void**)&Tmp2, _TEST_TEXT, sizeof(_TEST_TEXT)) == 0);

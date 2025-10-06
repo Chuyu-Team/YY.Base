@@ -1,0 +1,129 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{39a3a518-c7ca-4780-bc2e-2704723a58a5}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)\..\include</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Strings\StringTransform.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Sync\CriticalSection.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Sync\SRWLock.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Sync\Sync.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\SequencedTaskRunnerImpl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\TaskRunner.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.Linux.cc">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.Windows.cc">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\TaskRunnerDispatchImpl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\TaskRunnerImpl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadTaskRunnerImpl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Time\DataTime.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Utils\FileInfo.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Utils\SystemInfo.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Array.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Span.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\BitMap.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\ConstructorPolicy.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\DoublyLinkedList.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\HashSet.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Optional.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\SingleLinkedList.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Encoding.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\ErrorCode.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Exception.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Functional\Bind.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\IO\File.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Memory\Alloc.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Memory\ObserverPtr.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Memory\RefPtr.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Memory\UniquePtr.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Memory\WeakPtr.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\SafeCast.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\SAL.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Shared\Windows\km.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Strings\NString.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Strings\String.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Strings\StringTransform.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Strings\StringView.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\AutoLock.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\CriticalSection.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\Interlocked.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\InterlockedQueue.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\InterlockedSingleLinkedList.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\SRWLock.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Sync\Sync.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\tchar.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Threading\Coroutine.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Threading\ProcessThreads.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Threading\TaskRunner.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\Common.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\TickCount.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\TimeSpan.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Time\DataTime.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\ComObjectImpl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\FileInfo.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\MathUtils.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\SystemInfo.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Utils\Version.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\YY.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ParallelTaskRunnerImpl.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\SequencedTaskRunnerImpl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\TaskRunnerDispatchImpl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\TaskRunnerImpl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.Linux.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.Windows.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPoolTimerManger.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPoolWaitManger.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadTaskRunnerImpl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadTaskRunnerProxyImpl.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="$(MSBuildThisFileDirectory)\YY.Base.natvis" />
+  </ItemGroup>
+  <Target Name="{112FF666-47B5-4371-B525-84D9C5F097B2}" AfterTargets="BeforeClCompile">
+    <ItemGroup>
+      <ClCompile Update="@(ClCompile)" Condition="'%(ClCompile.Extension)' == '.cc' and $([System.String]::Copy('%(ClCompile.Identity)').EndsWith('.$(TargetPlatformIdentifier).cc')) == false">
+        <ExcludedFromBuild>true</ExcludedFromBuild>
+      </ClCompile>
+    </ItemGroup>
+  </Target>
+</Project>
