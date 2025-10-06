@@ -1,4 +1,5 @@
-﻿#include "CppUnitTest.h"
+﻿#include "ToStringHelper.h"
+#include "CppUnitTest.h"
 
 #include <atlstr.h>
 #include <Windows.h>
@@ -10,22 +11,6 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace YY;
-
-namespace Microsoft::VisualStudio::CppUnitTestFramework
-{
-    template<>
-    inline std::wstring ToString<YY::Span<const YY::uchar_t>>(const YY::Span<const YY::uchar_t>& _oValue) 
-    {
-        std::wstring _szResult;
-        _szResult += L'{';
-
-        _szResult.append(_oValue.GetData(), _oValue.GetLength());
-
-        _szResult += L'}';
-
-        return _szResult;
-    }
-}
 
 namespace UnitTest
 {

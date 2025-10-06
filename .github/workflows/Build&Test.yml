@@ -103,13 +103,27 @@ jobs:
           $Env:Path="$Env:GITHUB_WORKSPACE\Bin;${{env.MSBuildBinPath}};${{env.LatestVisualStudioRoot}}\Common7\IDE\CommonExtensions\Microsoft\TestWindow;" + $Env:Path
           
           # 编译单元测试项目
-          &msbuild UnitTest\UnitTest.vcxproj "-p:Configuration=Release;Platform=Win32;SolutionDir=$Env:GITHUB_WORKSPACE\\"
+          ## C++14
+          &msbuild UnitTest\UnitTest.vcxproj "-p:LanguageStandard=stdcpp14;Configuration=Release;Platform=Win32;SolutionDir=$Env:GITHUB_WORKSPACE\\" "-t:Rebuild"
           if($lastexitcode -ne 0)
           {
               throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
           }
            
-          &msbuild UnitTest\UnitTest.vcxproj "-p:Configuration=Release;Platform=x64;SolutionDir=$Env:GITHUB_WORKSPACE\\"
+          &msbuild UnitTest\UnitTest.vcxproj "-p:LanguageStandard=stdcpp14;Configuration=Release;Platform=x64;SolutionDir=$Env:GITHUB_WORKSPACE\\"  "-t:Rebuild"
+          if($lastexitcode -ne 0)
+          {
+              throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
+          }
+          
+          ## C++20
+          &msbuild UnitTest\UnitTest.vcxproj "-p:LanguageStandard=stdcpp20;Configuration=Release;Platform=Win32;SolutionDir=$Env:GITHUB_WORKSPACE\\" "-t:Rebuild"
+          if($lastexitcode -ne 0)
+          {
+              throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
+          }
+           
+          &msbuild UnitTest\UnitTest.vcxproj "-p:LanguageStandard=stdcpp20;Configuration=Release;Platform=x64;SolutionDir=$Env:GITHUB_WORKSPACE\\"  "-t:Rebuild"
           if($lastexitcode -ne 0)
           {
               throw "UnitTest\UnitTest.vcxproj 编译失败！退出代码：$lastexitcode"
