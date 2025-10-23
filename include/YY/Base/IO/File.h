@@ -148,6 +148,11 @@ namespace YY
                     return hFile;
                 }
 
+                bool __YYAPI IsValid() const noexcept
+                {
+                    return hFile != INVALID_HANDLE_VALUE;
+                }
+
                 static AsyncFile __YYAPI Open(_In_z_ const uchar_t* _szFilePath, _In_ Access _eAccess, _In_ ShareMode _eShareMode = ShareMode::None) noexcept
                 {
                     auto _hFile = CreateFileW(_szFilePath, static_cast<DWORD>(_eAccess), static_cast<DWORD>(_eShareMode), nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
@@ -465,8 +470,7 @@ namespace YY
                 static AsyncPipe __YYAPI Open(_In_z_ const uchar_t* _szFilePath, _In_ Access _eAccess, _In_ ShareMode _eShareMode = ShareMode::None) noexcept
                 {
                     auto _File = AsyncFile::Open(_szFilePath, _eAccess, _eShareMode);
-                    AsyncPipe _oPipe;
-                    _oPipe = std::move(_File);
+                    return AsyncPipe(std::move(_File));
                 }
 
                 /// <summary>
