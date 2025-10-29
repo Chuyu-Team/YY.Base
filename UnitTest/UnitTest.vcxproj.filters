@@ -42,6 +42,9 @@
     <ClCompile Include="SpanUnitTest.cpp">
       <Filter>单元测试</Filter>
     </ClCompile>
+    <ClCompile Include="AutoCleanupUnitTest.cpp">
+      <Filter>单元测试</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ToStringHelper.h">

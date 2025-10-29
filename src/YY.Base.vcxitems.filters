@@ -284,6 +284,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Functional\Bind.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h">
+      <Filter>头文件\YY\Base\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(MSBuildThisFileDirectory)\YY.Base.natvis">
