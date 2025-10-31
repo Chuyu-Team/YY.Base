@@ -42,17 +42,19 @@ namespace YY
                 {
                 }
 
-                uint32_t __YYAPI AddRef() noexcept
+                uint32_t __YYAPI AddRef() const noexcept
                 {
-                    return Sync::Increment(&uRef);
+                    auto _pThis = const_cast<RefValue*>(this);
+                    return Sync::Increment(&_pThis->uRef);
                 }
 
-                uint32_t __YYAPI Release() noexcept
+                uint32_t __YYAPI Release() const noexcept
                 {
-                    auto _uNewRef = Sync::Decrement(&uRef);
+                    auto _pThis = const_cast<RefValue*>(this);
+                    auto _uNewRef = Sync::Decrement(&_pThis->uRef);
                     if (_uNewRef == 0)
                     {
-                        this->~RefValue();
+                        _pThis->~RefValue();
 
                         ReleaseWeak();
                     }
@@ -65,29 +67,32 @@ namespace YY
                     return uRef > 1;
                 }
 
-                uint32_t __YYAPI AddWeakRef() noexcept
+                uint32_t __YYAPI AddWeakRef() const noexcept
                 {
-                    return Sync::Increment(&uWeakRef);
+                    auto _pThis = const_cast<RefValue*>(this);
+                    return Sync::Increment(&_pThis->uWeakRef);
                 }
 
-                uint32_t __YYAPI ReleaseWeak() noexcept
+                uint32_t __YYAPI ReleaseWeak() const noexcept
                 {
-                    auto _uNewWeakRef = Sync::Decrement(&uWeakRef);
+                    auto _pThis = const_cast<RefValue*>(this);
+                    auto _uNewWeakRef = Sync::Decrement(&_pThis->uWeakRef);
 
                     if (_uNewWeakRef == 0)
                     {
-                        Free(this);
+                        Free(_pThis);
                     }
 
                     return _uNewWeakRef;
                 }
 
-                bool __YYAPI TryAddRef() noexcept
+                bool __YYAPI TryAddRef() const noexcept
                 {
+                    auto _pThis = const_cast<RefValue*>(this);
                     auto _uCurrentRef = uRef;
                     for (; _uCurrentRef;)
                     {
-                        const auto _uLast = Sync::CompareExchange(&uRef, _uCurrentRef + 1, _uCurrentRef);
+                        const auto _uLast = Sync::CompareExchange(&_pThis->uRef, _uCurrentRef + 1, _uCurrentRef);
                         if (_uLast == _uCurrentRef)
                             return true;
 
