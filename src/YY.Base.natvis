@@ -122,6 +122,70 @@
             </ArrayItems>
         </Expand>
     </Type>
+    
+    <Type Name="YY::Base::Containers::Span&lt;*&gt;" Priority="MediumLow">
+        <Intrinsic Name="GetSize" Expression="cData" />
+        <Intrinsic Name="GetData" Expression="pData" />
+        <DisplayString>{{ Size={GetSize()} }}</DisplayString>
+        <Expand>
+            <Item Name="[Size]" ExcludeView="simple">GetSize()</Item>
+            <Item Name="[Data]" ExcludeView="simple">GetData()</Item>
+            <ArrayItems>
+                <Size>GetSize()</Size>
+                <ValuePointer>GetData()</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="YY::Base::Utils::Version" Priority="MediumLow">
+        <DisplayString>{uMajor,d}.{uMinor,d}.{uBuild,d}.{uRevision,d}</DisplayString>
+    </Type>
+    
+    <Type Name="YY::Base::Time::TimeSpan" Priority="MediumLow">
+        <Intrinsic Name="TicksPerMicrosecond" Expression="kTicksPerMicrosecond" />
+        <Intrinsic Name="TicksPerMillisecond" Expression="TicksPerMicrosecond() * YY::Base::Time::kMicrosecondsPerMillisecond" />
+        <Intrinsic Name="TicksPerSecond" Expression="TicksPerMillisecond() * YY::Base::Time::kMillisecondsPerSecond" />
+        <Intrinsic Name="TicksPerMinute" Expression="TicksPerSecond() * YY::Base::Time::kSecondsPerMinute" />
+        <Intrinsic Name="TicksPerHour" Expression="TicksPerMinute() * YY::Base::Time::kMinutesPerHour" />
+        <Intrinsic Name="TicksPerDay" Expression="TicksPerHour() * YY::Base::Time::kHoursPerDay" />
+
+        <Intrinsic Name="GetTicks" Expression="iElapsedTicks >= 0 ? iElapsedTicks : (iElapsedTicks * -1ll)" />
+        <Intrinsic Name="GetNanoseconds" Expression="GetTicks() * 100" />
+        <Intrinsic Name="GetMicroseconds" Expression="GetTicks() / TicksPerMicrosecond()" />
+        <Intrinsic Name="GetMilliseconds" Expression="GetTicks() / TicksPerMillisecond()" />
+        <Intrinsic Name="GetSeconds" Expression="GetTicks() / TicksPerSecond()" />
+        <Intrinsic Name="GetMinutes" Expression="GetTicks() / TicksPerMinute()" />
+        <Intrinsic Name="GetHours" Expression="GetTicks() / TicksPerHour()" />
+        <Intrinsic Name="GetDays" Expression="GetTicks() / TicksPerDay()" />
+
+        <DisplayString Condition="GetDays() !=0">{ iElapsedTicks / TicksPerDay(),d}.{ GetHours() % 24,d}:{GetMinutes() % 60,d}:{GetSeconds() % 60,d}.{GetMilliseconds() % 1000,d}</DisplayString>
+        <DisplayString Condition="GetMilliseconds() !=0">{ iElapsedTicks / TicksPerHour(),d}:{GetMinutes() % 60,d}:{GetSeconds() % 60,d}.{GetMilliseconds() % 1000,d}</DisplayString>
+        <DisplayString Condition="GetMicroseconds() !=0">{iElapsedTicks/TicksPerMillisecond(),d}us</DisplayString>
+        <DisplayString>{iElapsedTicks * 100,d}ns</DisplayString>
+        <Expand>
+            <Item Name="[Days]" ExcludeView="simple" Condition="GetDays() != 0">iElapsedTicks / TicksPerDay()</Item>
+            <Item Name="[Hours]" ExcludeView="simple" Condition="GetHours() != 0">iElapsedTicks / TicksPerHour() % 24</Item>
+            <Item Name="[Minutes]" ExcludeView="simple" Condition="GetMinutes() != 0">iElapsedTicks / TicksPerMinute() % 60</Item>
+            <Item Name="[Seconds]" ExcludeView="simple" Condition="GetSeconds() != 0">iElapsedTicks / TicksPerSecond() % 60</Item>
+            <Item Name="[Milliseconds]" ExcludeView="simple" Condition="GetMilliseconds() != 0">iElapsedTicks / TicksPerMillisecond() % 1000</Item>
+            <Item Name="[Microseconds]" ExcludeView="simple" Condition="GetMicroseconds() != 0">iElapsedTicks / TicksPerMicrosecond() % 1000</Item>
+            <Item Name="[Nanoseconds]" ExcludeView="simple" Condition="GetNanoseconds() != 0">iElapsedTicks % 10 * 100</Item>
+
+            <Item Name="[TotalDays]" ExcludeView="simple" Condition="GetDays() != 0">iElapsedTicks / TicksPerDay()</Item>
+
+            <Item Name="[TotalHours]" ExcludeView="simple" Condition="GetHours() != 0">iElapsedTicks / TicksPerHour()</Item>
+
+            <Item Name="[TotalMinutes]" ExcludeView="simple" Condition="GetMinutes() != 0">iElapsedTicks / TicksPerMinute()</Item>
+
+            <Item Name="[TotalSeconds]" ExcludeView="simple" Condition="GetSeconds() != 0">iElapsedTicks / TicksPerSecond()</Item>
+
+            <Item Name="[TotalMilliseconds]" ExcludeView="simple" Condition="GetMilliseconds() != 0">iElapsedTicks / TicksPerMillisecond()</Item>
+
+            <Item Name="[TotalMicroseconds]" ExcludeView="simple" Condition="GetMicroseconds() != 0">iElapsedTicks / TicksPerMicrosecond()</Item>
+
+            <Item Name="[Ticks]" ExcludeView="simple">iElapsedTicks</Item>
+        </Expand>
+    </Type>
 
     <Type Name="YY::Base::Time::UtcDataTime">
         <Intrinsic Name="MicrosecondsPerMillisecond" Expression="YY::Base::Time::kMicrosecondsPerMillisecond * kTicksPerMicrosecond" />
