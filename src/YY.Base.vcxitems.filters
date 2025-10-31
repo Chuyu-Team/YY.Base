@@ -120,6 +120,9 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Time\DataTime.cpp">
       <Filter>源文件\YY\Base\Time</Filter>
     </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Time\TimeZone.cpp">
+      <Filter>源文件\YY\Base\Time</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Array.h">
@@ -295,6 +298,9 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h">
       <Filter>头文件\YY\Base\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h">
+      <Filter>头文件\YY\Base\Time</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

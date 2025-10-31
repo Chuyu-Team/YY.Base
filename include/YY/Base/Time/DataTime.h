@@ -4,6 +4,7 @@
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Utils/MathUtils.h>
 #include <YY/Base/Containers/Optional.h>
+#include <YY/Base/Time/TimeZone.h>
 
 #if defined(_HAS_CXX20) && _HAS_CXX20
 #include <compare>
@@ -72,16 +73,11 @@ namespace YY
                     return _oTime;
                 }
 
-                SYSTEMTIME __YYAPI GetSystemTime() const
-                {
-                    SYSTEMTIME _oSystemTime;
-                    FileTimeToSystemTime(&oFileTime, &_oSystemTime);
-                    return _oSystemTime;
-                }
+                SYSTEMTIME __YYAPI ToSystemTime() const;
 
-                LocalDataTime __YYAPI GetLocalDataTime(_In_opt_ const DYNAMIC_TIME_ZONE_INFORMATION* _pTimeZoneInformation = nullptr) const;
+                LocalDataTime __YYAPI ToLocalDataTime(_In_opt_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone()) const;
 
-                constexpr time_t __YYAPI GetCrtTime() const
+                constexpr time_t __YYAPI ToCrtTime() const
                 {
                     if (uTimeInternalValue < 116444736000000000ULL)
                         return -1;
@@ -173,21 +169,29 @@ namespace YY
                     uint64_t uTimeInternalValue;
                 };
 
+                YY::RefPtr<const TimeZone> pTimeZone;
+
                 constexpr LocalDataTime() = default;
 
-                explicit constexpr LocalDataTime(const FILETIME& oFileTime)
+                explicit LocalDataTime(const FILETIME& oFileTime, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone())
                     : oFileTime(oFileTime)
+                    , pTimeZone(std::move(_pTimeZone))
                 {
                 }
 
-                explicit LocalDataTime(const SYSTEMTIME& _oSystemTime)
+                explicit LocalDataTime(const SYSTEMTIME& _oSystemTime, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone())
+                    : pTimeZone(std::move(_pTimeZone))
                 {
                     SystemTimeToFileTime(&_oSystemTime, &oFileTime);
                 }
 
-                static LocalDataTime __YYAPI GetNow(_In_opt_ const DYNAMIC_TIME_ZONE_INFORMATION* _pTimeZoneInformation = nullptr)
+                LocalDataTime(LocalDataTime&&) noexcept = default;
+
+                LocalDataTime(const LocalDataTime&) = default;
+
+                static LocalDataTime __YYAPI GetNow(_In_opt_ YY::RefPtr<const TimeZone> pTimeZone = TimeZone::GetCurrentTimeZone())
                 {
-                    return UtcDataTime::GetNow().GetLocalDataTime(_pTimeZoneInformation);
+                    return UtcDataTime::GetNow().ToLocalDataTime(pTimeZone);
                 }
 
                 constexpr static uint64_t __YYAPI GetSecondsPerInternal() noexcept
@@ -196,35 +200,31 @@ namespace YY
                     return SecondsPerMillisecond * MillisecondsPerMicrosecond * 10;
                 }
 
-                static constexpr LocalDataTime __YYAPI FromFileTime(const FILETIME& _oFileTime) noexcept
+                static LocalDataTime __YYAPI FromFileTime(const FILETIME& _oFileTime, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone()) noexcept
                 {
-                    LocalDataTime _oTime(_oFileTime);
+                    LocalDataTime _oTime(_oFileTime, std::move(_pTimeZone));
                     return _oTime;
                 }
 
-                static LocalDataTime __YYAPI FromSystemTime(const SYSTEMTIME& _oSystemTime)
+                static LocalDataTime __YYAPI FromSystemTime(const SYSTEMTIME& _oSystemTime, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone())
                 {
-                    LocalDataTime _oTime(_oSystemTime);
+                    LocalDataTime _oTime(_oSystemTime, std::move(_pTimeZone));
                     return _oTime;
                 }
 
-                static constexpr LocalDataTime __YYAPI FromCrtTime(time_t _oCrtTime)
+                static LocalDataTime __YYAPI FromCrtTime(time_t _oCrtTime, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone())
                 {
                     LocalDataTime _oTime;
                     _oTime.uTimeInternalValue = uint64_t(_oCrtTime) * 10000000LL + 116444736000000000LL;
+                    _oTime.pTimeZone = std::move(_pTimeZone);
                     return _oTime;
                 }
 
-                SYSTEMTIME __YYAPI GetSystemTime() const
-                {
-                    SYSTEMTIME _oSystemTime;
-                    FileTimeToSystemTime(&oFileTime, &_oSystemTime);
-                    return _oSystemTime;
-                }
+                SYSTEMTIME __YYAPI ToSystemTime() const;
 
-                UtcDataTime __YYAPI GetUtcDataTime(_In_opt_ const DYNAMIC_TIME_ZONE_INFORMATION* _pTimeZoneInformation = nullptr) const;
+                UtcDataTime __YYAPI ToUtcDataTime() const;
 
-                constexpr time_t __YYAPI GetCrtTime() const
+                constexpr time_t __YYAPI ToCrtTime() const
                 {
                     if (uTimeInternalValue < 116444736000000000ULL)
                         return -1;
@@ -278,7 +278,7 @@ namespace YY
                     return *this;
                 }
 
-                constexpr LocalDataTime operator+(const TimeSpan& _nSpan) noexcept
+                LocalDataTime operator+(const TimeSpan& _nSpan) noexcept
                 {
                     LocalDataTime _oTmp = *this;
                     _oTmp += _nSpan;
@@ -292,7 +292,7 @@ namespace YY
                     return *this;
                 }
 
-                constexpr LocalDataTime operator-(const TimeSpan& _nSpan) noexcept
+                LocalDataTime operator-(const TimeSpan& _nSpan) noexcept
                 {
                     LocalDataTime _oTmp = *this;
                     _oTmp -= _nSpan;

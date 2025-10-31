@@ -325,7 +325,8 @@
 
         <Intrinsic Name="GetDay" Expression="IsLeapYear(GetYear()) ? CalculateDayForLeapYearByDays(GetDaysPassedThisYear()) : CalculateDayByDays(GetDaysPassedThisYear())" />
 
-        <DisplayString>{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d}</DisplayString>
+        <DisplayString Condition="pTimeZone.p != 0">{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d} {pTimeZone.p->StandardName,sub}</DisplayString>
+        <DisplayString>{GetYear(),d}-{GetMonth(),d}-{GetDay(),d}T{GetHour(),d}:{GetMinute(),d}:{GetSecond(),d}.{GetMillisecond(),d} 默认时区</DisplayString>
 
         <Expand>
             <Item Name="[Year]" ExcludeView="simple">GetYear()</Item>
@@ -357,6 +358,12 @@
             </Synthetic>
             <Synthetic Name="[DayOfWeek]"  Condition="GetDayOfWeek() == 6">
                 <DisplayString>星期日</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[StandardName]" Condition="pTimeZone.p != 0">
+                <DisplayString>{pTimeZone.p->StandardName,sub}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[StandardName]" Condition="pTimeZone.p == 0">
+                <DisplayString>默认时区</DisplayString>
             </Synthetic>
         </Expand>
     </Type>

@@ -8,11 +8,18 @@ namespace YY
     {
         namespace Time
         {
-            LocalDataTime __YYAPI UtcDataTime::GetLocalDataTime(const DYNAMIC_TIME_ZONE_INFORMATION* _pTimeZoneInformation) const
+            SYSTEMTIME __YYAPI UtcDataTime::ToSystemTime() const
             {
-                auto _oSystemTime = GetSystemTime();
+                SYSTEMTIME _oSystemTime;
+                FileTimeToSystemTime(&oFileTime, &_oSystemTime);
+                return _oSystemTime;
+            }
+
+            LocalDataTime __YYAPI UtcDataTime::ToLocalDataTime(YY::RefPtr<const TimeZone> _pTimeZone) const
+            {
+                auto _oSystemTime = ToSystemTime();
                 SYSTEMTIME _oLocalSystemTime;
-                SystemTimeToTzSpecificLocalTimeEx(_pTimeZoneInformation, &_oSystemTime, &_oLocalSystemTime);
+                SystemTimeToTzSpecificLocalTimeEx(_pTimeZone, &_oSystemTime, &_oLocalSystemTime);
 
                 LocalDataTime _oLocalDataTime(_oLocalSystemTime);
                 // 修正转换过程中的精度损失
@@ -20,11 +27,18 @@ namespace YY
                 return _oLocalDataTime;
             }
 
-            UtcDataTime __YYAPI LocalDataTime::GetUtcDataTime(const DYNAMIC_TIME_ZONE_INFORMATION* _pTimeZoneInformation) const
+            SYSTEMTIME __YYAPI LocalDataTime::ToSystemTime() const
             {
-                auto _oSystemTime = GetSystemTime();
+                SYSTEMTIME _oSystemTime;
+                FileTimeToSystemTime(&oFileTime, &_oSystemTime);
+                return _oSystemTime;
+            }
+
+            UtcDataTime __YYAPI LocalDataTime::ToUtcDataTime() const
+            {
+                auto _oSystemTime = ToSystemTime();
                 SYSTEMTIME _oUtcSystemTime;
-                TzSpecificLocalTimeToSystemTimeEx(_pTimeZoneInformation, &_oSystemTime, &_oUtcSystemTime);
+                TzSpecificLocalTimeToSystemTimeEx(pTimeZone, &_oSystemTime, &_oUtcSystemTime);
 
                 UtcDataTime _oUtcDataTime(_oUtcSystemTime);
                 // 修正转换过程中的精度损失
