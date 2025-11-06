@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <YY/Base/ErrorCode.h>
+#include <YY/Base/Utils/SystemInfo.h>
 
 #pragma comment(lib, "Version.lib")
 
@@ -45,23 +46,26 @@ namespace YY
 
 					VS_FIXEDFILEINFO* _pFileInfo = NULL;
 					UINT _cbFileInfo;
-#ifndef _ATL_XP_TARGETING
-					if (!VerQueryValueW(_hGlobal, L"\\", (LPVOID*)&_pFileInfo, &_cbFileInfo))
-					{
-						return HRESULT_From_LSTATUS(GetLastError());
-					}
-#else
-					// XP系统不允许直接调用，不然会触发内存非法访问。所以先复制到一个内存块上
-					const DWORD _cbFileInfoBuffer = SizeofResource(_hMoudle, _hRsrcVersion);
-					void* _pFileInfoBuffer = alloca(_cbFileInfoBuffer);
+                    if (GetOperatingSystemVersion() >= Version(6, 0))
+                    {
+                        if (!VerQueryValueW(_hGlobal, L"\\", (LPVOID*)&_pFileInfo, &_cbFileInfo))
+                        {
+                            return HRESULT_From_LSTATUS(GetLastError());
+                        }
+                    }
+                    else
+                    {
+                        // XP系统不允许直接调用，不然会触发内存非法访问。所以先复制到一个内存块上
+                        const DWORD _cbFileInfoBuffer = SizeofResource(_hMoudle, _hRsrcVersion);
+                        void* _pFileInfoBuffer = alloca(_cbFileInfoBuffer);
 
-					memcpy(_pFileInfoBuffer, _hGlobal, _cbFileInfoBuffer);
+                        memcpy(_pFileInfoBuffer, _hGlobal, _cbFileInfoBuffer);
 
-					if (!VerQueryValueW(_pFileInfoBuffer, L"\\", (LPVOID*)&_pFileInfo, &_cbFileInfo))
-					{
-						return HRESULT_From_LSTATUS(GetLastError());
-					}
-#endif
+                        if (!VerQueryValueW(_pFileInfoBuffer, L"\\", (LPVOID*)&_pFileInfo, &_cbFileInfo))
+                        {
+                            return HRESULT_From_LSTATUS(GetLastError());
+                        }
+                    }
 
 					_pVersion->uLowPart = _pFileInfo->dwFileVersionLS;
 					_pVersion->uHightPart = _pFileInfo->dwFileVersionMS;
