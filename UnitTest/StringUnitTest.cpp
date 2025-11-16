@@ -1,12 +1,6 @@
 ﻿#include "CppUnitTest.h"
 #include "ToStringHelper.h"
 
-#include <atlstr.h>
-#include <Windows.h>
-#include <tchar.h>
-#include <string>
-#include <atltypes.h>
-
 #include <YY/Base/Strings/NString.h>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
@@ -173,6 +167,9 @@ namespace UnitTest
 
             _szTemp.Remove(5, 2);
             Assert::AreEqual(_szTemp, _S("23678"));
+
+            _szTemp.Remove(3);
+            Assert::AreEqual(_szTemp, _S("236"));
 
             _szTemp.Remove(0);
             Assert::AreEqual(_szTemp, _S(""));
