@@ -45,6 +45,9 @@
     <ClCompile Include="AutoCleanupUnitTest.cpp">
       <Filter>单元测试</Filter>
     </ClCompile>
+    <ClCompile Include="PathUnitTest.cpp">
+      <Filter>单元测试</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ToStringHelper.h">

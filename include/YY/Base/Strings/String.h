@@ -167,7 +167,7 @@ namespace YY
                 _Field_z_ char_t* szString;
 
             public:
-                explicit StringBase() noexcept
+                explicit constexpr StringBase() noexcept
                     : szString(StringData::GetEmtpyStringData()->GetStringBuffer())
                 {
                 }
@@ -1172,7 +1172,7 @@ namespace YY
                         return _pNewStringData;
                     }
 
-                    static _Ret_notnull_ StringData* __YYAPI GetEmtpyStringData()
+                    static constexpr _Ret_notnull_ StringData* __YYAPI GetEmtpyStringData() noexcept
                     {
                         struct StaticStringData
                         {
@@ -1187,7 +1187,7 @@ namespace YY
                         return const_cast<StringData*>(&g_EmptyStringData.Base);
                     }
 
-                    _Ret_z_ char_t* __YYAPI GetStringBuffer()
+                    constexpr _Ret_z_ char_t* __YYAPI GetStringBuffer() noexcept
                     {
                         return reinterpret_cast<char_t*>(this + 1);
                     }
