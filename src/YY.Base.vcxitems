@@ -14,6 +14,9 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\IO\Path.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Time\TimeZone.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -62,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\FunctionTraits.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\IO\Path.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\Handle.h" />
