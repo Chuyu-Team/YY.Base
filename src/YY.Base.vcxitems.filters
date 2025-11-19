@@ -302,6 +302,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h">
       <Filter>头文件\YY\Base\Time</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\Handle.h">
+      <Filter>头文件\YY\Base\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(MSBuildThisFileDirectory)\YY.Base.natvis">

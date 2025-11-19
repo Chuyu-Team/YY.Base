@@ -63,6 +63,7 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\AutoCleanup.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\Handle.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Array.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Span.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\BitMap.h" />
