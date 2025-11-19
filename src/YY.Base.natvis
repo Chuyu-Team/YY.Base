@@ -381,4 +381,13 @@
             </Synthetic>
         </Expand>
     </Type>
+    
+    <Type Name="YY::Base::Containers::Optional&lt;*&gt;" Priority="MediumLow">
+        <Intrinsic Name="GetData" Expression="*(ValueType*)oValueBuffer" />
+        <DisplayString Condition="bHasValue">{{ Value={GetData()} }}</DisplayString>
+        <DisplayString Condition="bHasValue == false">{ nullptr }</DisplayString>
+        <Expand>
+            <Item Name="[Data]" Condition="bHasValue" ExcludeView="simple">GetData()</Item>
+        </Expand>
+    </Type>    
 </AutoVisualizer>

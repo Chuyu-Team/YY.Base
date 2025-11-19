@@ -18,32 +18,33 @@ namespace YY
             private:
                 union
                 {
-                    char oValueBuffer[sizeof(_Type)] = {};
-                    _Type oValue;
+                    char oValueBuffer[sizeof(_Type)];
                 };
 
                 bool bHasValue = false;
 
             public:
+                using ValueType = _Type;
+
                 constexpr Optional() = default;
 
                 constexpr Optional(const _Type& _oValue)
-                    : oValue(_oValue)
-                    , bHasValue(true)
+                    : bHasValue(true)
                 {
+                    new (&oValueBuffer) _Type(_oValue);
                 }
                 
                 constexpr Optional(_Type&& _oValue)
-                    : oValue(std::move(_oValue))
-                    , bHasValue(true)
+                    : bHasValue(true)
                 {
+                    new (&oValueBuffer) _Type(std::move(_oValue));
                 }
 
                 constexpr Optional(const Optional& _oOther)
                 {
                     if (_oOther.bHasValue)
                     {
-                        new (&oValue) _Type(_oOther.oValue);
+                        new (&oValueBuffer) _Type(reinterpret_cast<const _Type&>(_oOther.oValueBuffer));
                         bHasValue = true;
                     }
                 }
@@ -52,7 +53,7 @@ namespace YY
                 {
                     if (_oOther.bHasValue)
                     {
-                        new (&oValue) _Type(std::move(_oOther.oValue));
+                        new (&oValueBuffer) _Type(std::move(reinterpret_cast<_Type&>(_oOther.oValueBuffer)));
                         _oOther.Reset();
                         bHasValue = true;
                     }
@@ -70,7 +71,7 @@ namespace YY
 
                 _Ret_maybenull_ _Type* __YYAPI GetValuePtr() noexcept
                 {
-                    return bHasValue ? &oValue : nullptr;
+                    return bHasValue ? reinterpret_cast<_Type*>(&oValueBuffer) : nullptr;
                 }
 
                 _Ret_maybenull_ inline const _Type* __YYAPI GetValuePtr() const noexcept
@@ -92,16 +93,16 @@ namespace YY
                 _Type& __YYAPI Emplace(Args&&... oArgs)
                 {
                     Reset();
-                    new (&oValue) _Type(std::forward<Args>(oArgs)...);
+                    new (oValueBuffer) _Type(std::forward<Args>(oArgs)...);
                     bHasValue = true;
-                    return oValue;
+                    return reinterpret_cast<_Type&>(oValueBuffer);
                 }
 
                 void __YYAPI Reset()
                 {
                     if (bHasValue)
                     {
-                        oValue.~_Type();
+                        reinterpret_cast<_Type*>(&oValueBuffer)->~_Type();
                         bHasValue = false;
                     }
                 }
@@ -110,14 +111,14 @@ namespace YY
                 {
                     if (bHasValue)
                     {
-                        if (&oValue != &_oValue)
+                        if (reinterpret_cast<_Type*>(&oValueBuffer) != &_oValue)
                         {
-                            oValue = _oValue;
+                            reinterpret_cast<_Type&>(oValueBuffer) = _oValue;
                         }
                     }
                     else
                     {
-                        new (&oValue) _Type(_oValue);
+                        new (&oValueBuffer) _Type(_oValue);
                         bHasValue = true;
                     }
 
@@ -128,14 +129,14 @@ namespace YY
                 {
                     if (bHasValue)
                     {
-                        if (&oValue != &_oValue)
+                        if (reinterpret_cast<_Type*>(&oValueBuffer) != &_oValue)
                         {
-                            oValue = std::move(_oValue);
+                            reinterpret_cast<_Type&>(oValueBuffer) = std::move(_oValue);
                         }
                     }
                     else
                     {
-                        new (&oValue) _Type(std::move(_oValue));
+                        new (&oValueBuffer) _Type(std::move(_oValue));
                         bHasValue = true;
                     }
 
