@@ -17,7 +17,7 @@
     <tags>Chuyu YY-Thunks native nativepackage</tags>
     <repository type="git" url="https://github.com/Chuyu-Team/YY.Base.git" branch="master" commit="$commit$" />
     <dependencies>
-      <dependency id="YY.NuGet.Import.Helper" version="1.0.1" />
+      <dependency id="YY.NuGet.Import.Helper" version="1.0.2" />
     </dependencies>
     <contentFiles>
       <files include="any\any\YY.Base.txt" buildAction="Content" copyToOutput="false"/>
