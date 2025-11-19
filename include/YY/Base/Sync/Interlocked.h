@@ -45,7 +45,7 @@ namespace YY
             inline int64_t __YYAPI Increment(volatile int64_t* _pAddend)
             {
 #ifdef _MSC_VER
-                return (int64_t)_interlockedincrement64(_pAddend);
+                return (int64_t)InterlockedIncrement64(_pAddend);
 #else
                 return __sync_add_and_fetch(_pAddend, 1);
 #endif
@@ -93,7 +93,7 @@ namespace YY
             inline int64_t __YYAPI Decrement(volatile int64_t* _pAddend)
             {
 #ifdef _MSC_VER
-                return (int64_t)_interlockeddecrement64(reinterpret_cast<long long volatile*>(_pAddend));
+                return (int64_t)InterlockedDecrement64(reinterpret_cast<long long volatile*>(_pAddend));
 #else
                 return __sync_sub_and_fetch(_pAddend, 1);
 #endif
@@ -435,7 +435,7 @@ namespace YY
             inline int64_t __YYAPI Exchange(volatile int64_t* _pDestination, int64_t _iExchange)
             {
 #ifdef _MSC_VER
-                return (int64_t)_interlockedexchange64(reinterpret_cast<long long volatile*>(_pDestination), _iExchange);
+                return (int64_t)InterlockedExchange64(reinterpret_cast<long long volatile*>(_pDestination), _iExchange);
 #else
                 return __sync_lock_test_and_set(_pDestination, _iExchange);
 #endif
