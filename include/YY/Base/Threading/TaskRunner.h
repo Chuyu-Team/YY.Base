@@ -486,11 +486,18 @@ namespace YY
                 /// 运行UI线程专属消息循环。
                 /// * 主线程运行消息循环后才能正常使用 ThreadTaskRunner::GetCurrent();
                 /// * 如果 RunUIMessageLoop 退出，后续的PostTask等请求将失败。
+                /// * 使用 ThreadTaskRunner::PostQuitMessage退出消息循环。
                 /// </summary>
-                /// <param name="_pfnCallback">启动循环之前进行的函数调用，Callback发生期间可以使用`ThreadTaskRunner::GetCurrent()`。</param>
-                /// <param name="_pUserData">后续传递给 _pfnCallback 的 _pUserData</param>
                 /// <returns>消息循环退出代码。</returns>
                 static uintptr_t __YYAPI RunUIMessageLoop();
+
+                /// <summary>
+                /// 通知消息循环（RunUIMessageLoop）退出。必须是一个ThreadTaskRunner线程才能调用此函数。
+                ///  * 对于Win32平台，函数将Post一个WM_QUIT消息到消息队列中。行为等效于WinAPI PostQuitMessage
+                /// </summary>
+                /// <param name="_uExitCode">退出代码（uint32_t），作为退出消息的状态值传递。</param>
+                /// <returns>标准HRESULT错误代码。</returns>
+                static HRESULT __YYAPI PostQuitMessage(uint32_t _uExitCode = 0ul);
             };
 
             // 自动将任务并行处理且负载均衡

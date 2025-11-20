@@ -413,6 +413,23 @@ namespace YY
                 return _uResult;
             }
 
+            HRESULT __YYAPI ThreadTaskRunner::PostQuitMessage(uint32_t _uExitCode)
+            {
+                auto _pTaskRunner = g_pTaskRunnerWeak.Get();
+                if (!_pTaskRunner)
+                {
+                    return E_UNEXPECTED;
+                }
+
+                if (!HasFlags(_pTaskRunner->GetStyle(), TaskRunnerStyle::FixedThread))
+                {
+                    return E_UNEXPECTED;
+                }
+
+                ::PostQuitMessage(static_cast<int>(_uExitCode));
+                return S_OK;
+            }
+
             RefPtr<ParallelTaskRunner> __YYAPI ParallelTaskRunner::GetCurrent() noexcept
             {
                 auto _pTaskRunner = g_pTaskRunnerWeak.Get();
