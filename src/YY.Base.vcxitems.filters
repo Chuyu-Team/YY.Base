@@ -269,10 +269,10 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPool.h">
       <Filter>源文件\YY\Base\Threading</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPoolTimerManger.h">
+    <ClInclude Include="$(MSBuildThisFileDirectory)YY\Base\Threading\ThreadTaskRunnerTimerManger.h">
       <Filter>源文件\YY\Base\Threading</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadPoolWaitManger.h">
+    <ClInclude Include="$(MSBuildThisFileDirectory)YY\Base\Threading\ThreadTaskRunnerWaitManger.h">
       <Filter>源文件\YY\Base\Threading</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)\YY\Base\Threading\ThreadTaskRunnerImpl.h">

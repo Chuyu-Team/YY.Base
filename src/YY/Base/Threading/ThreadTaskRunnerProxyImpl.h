@@ -15,7 +15,7 @@ namespace YY
         {
             class ThreadTaskRunnerProxyImpl
                 : public ThreadTaskRunnerBaseImpl
-                , public ThreadPoolTimerManger
+                , public ThreadTaskRunnerTimerManger
             {
                 static constexpr auto kExecuteTaskRunnerMsg = WM_APP;
                 static constexpr auto kTimerTaskTimerId = 100;
@@ -185,13 +185,13 @@ namespace YY
                     {
                         return PostTask([this, _pTask]() mutable
                             {
-                                ThreadPoolTimerManger::SetTimerInternal(std::move(_pTask));
+                                ThreadTaskRunnerTimerManger::SetTimerInternal(std::move(_pTask));
                             });
                     }
                     else
                     {
                         ++uSetTimerCount;
-                        auto _hr = ThreadPoolTimerManger::SetTimerInternal(std::move(_pTask));
+                        auto _hr = ThreadTaskRunnerTimerManger::SetTimerInternal(std::move(_pTask));
                         if (SUCCEEDED(_hr))
                         {
                             if (uSetTimerCount == 1)

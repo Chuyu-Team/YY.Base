@@ -17,16 +17,34 @@ namespace YY
     {
         namespace Threading
         {
+            TaskEntry::~TaskEntry()
+            {
+                Cancel();
+            }
+
             void __YYAPI TaskEntry::Wakeup(HRESULT _hrCode)
             {
-                hr = _hrCode;
-                WakeByAddressAll(&hr);
+                if (YY::CompareExchange(&hr, _hrCode, E_PENDING) == E_PENDING)
+                {
+                    WakeByAddressAll(&hr);
+                }
             }
 
             bool __YYAPI TaskEntry::Wait(uint32_t _uMilliseconds)
             {
                 HRESULT _hrTarget = E_PENDING;
                 return WaitOnAddress(&hr, &_hrTarget, sizeof(_hrTarget), _uMilliseconds);
+            }
+
+            bool __YYAPI TaskEntry::Cancel()
+            {
+                if (!YY::Sync::BitSet((int32_t*)&fStyle, 2))
+                {
+                    Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
+                    return true;
+                }
+
+                return false;
             }
 
             HRESULT __YYAPI TaskEntry::RunTask()
@@ -77,6 +95,27 @@ namespace YY
                     }
                     return S_OK;
                 }
+            }
+
+            bool __YYAPI Timer::Cancel()
+            {
+                const auto _bRet = TaskEntry::Cancel();
+
+                HANDLE _hThreadPoolTimer = YY::ExchangePoint(&hThreadPoolTimer, nullptr);
+                if (_hThreadPoolTimer == INVALID_HANDLE_VALUE)
+                {
+                    // 标记任务取消后，线程后续会自动释放资源。
+                }
+                else if(_hThreadPoolTimer)
+                {
+                    // 如果失败，往往意味着回调函数正在进行，此时交给回调函数 执行ReleaseWeak。
+                    if (DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL))
+                    {
+                        ReleaseWeak();
+                    }
+                }
+
+                return _bRet;
             }
 
             Threading::TaskRunner::TaskRunner()
@@ -335,6 +374,11 @@ namespace YY
                 return S_OK;
             }
 
+            HRESULT __YYAPI TaskRunner::DeleteWaitInternal(Wait* _pTask)
+            {
+                return S_OK;
+            }
+
             RefPtr<ThreadTaskRunner> __YYAPI ThreadTaskRunner::Create(bool _bBackgroundLoop, uString _szThreadDescription)
             {
                 auto _pTaskRunner = RefPtr<ThreadTaskRunnerImpl>::Create(0u, _bBackgroundLoop, std::move(_szThreadDescription));
@@ -464,6 +508,31 @@ namespace YY
                 {
                     return HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
+            }
+
+            bool __YYAPI Wait::Cancel()
+            {
+                const auto _bRet = TaskEntry::Cancel();
+
+                HANDLE _hThreadPoolWait = YY::ExchangePoint(&hThreadPoolWait, NULL);
+                if (_hThreadPoolWait == INVALID_HANDLE_VALUE)
+                {
+                    // Owner线程的线程队列正在等待……
+                    if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
+                    {
+                        _pOwnerTaskRunner->DeleteWaitInternal(this);
+                    }
+                }
+                else if(_hThreadPoolWait)
+                {
+                    // 如果失败，往往意味着回调函数正在进行，此时交给回调函数 执行ReleaseWeak即可。
+                    if (UnregisterWaitEx(_hThreadPoolWait, NULL))
+                    {
+                        ReleaseWeak();
+                    }
+                }
+
+                return _bRet;
             }
         } // namespace Threading
     }

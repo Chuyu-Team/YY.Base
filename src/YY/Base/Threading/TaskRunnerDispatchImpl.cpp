@@ -1,16 +1,11 @@
 ﻿#include "TaskRunnerDispatchImpl.h"
 
-#include <utility>
-
 #ifndef _WIN32
 #include <signal.h>
 #endif
 
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Sync/Interlocked.h>
-#include <YY/Base/Utils/SystemInfo.h>
-
-#include "TaskRunnerImpl.h"
 
 __YY_IGNORE_INCONSISTENT_ANNOTATION_FOR_FUNCTION()
 
@@ -20,180 +15,14 @@ namespace YY
     {
         namespace Threading
         {
-            template<typename DerivedClass>
-            class TaskRunnerDispatchBaseImpl
-                : public TaskRunnerDispatch
-                , public ThreadPoolTimerManger
-                , public ThreadPoolWaitMangerForMultiThreading
-            {
-            protected:
-                // 该 Dispatch持有的任务引用计数，如果引用计数 <=0，那么可以归将线程归还给全局线程池。
-                volatile int32_t nDispatchTaskRef = 0ul;
-
-                enum : uint32_t
-                {
-                    PendingTaskQueuePushLockBitIndex = 0,
-                    WakeupRefBitIndex,
-
-                    WakeupRefOnceRaw = 1 << WakeupRefBitIndex,
-                    UnlockQueuePushLockBitAndWakeupRefOnceRaw = WakeupRefOnceRaw - (1u << PendingTaskQueuePushLockBitIndex),
-                };
-
-                union
-                {
-                    volatile uint32_t fFlags = 0ul;
-                    struct
-                    {
-                        uint32_t bPendingTaskQueuePushLock : 1;
-                        // 唤醒的引用计数，这里偶尔因为时序，从 0 溢出也没事。
-                        // 这里只是做一个记录。
-                        uint32_t uWakeupRef : 31;
-                    };
-                };
-
-                InterlockedQueue<Timer> oPendingTimerTaskQueue;
-                InterlockedQueue<Wait> oPendingWaitTaskQueue;
-
-            public:
-#ifdef _WIN32
-                TaskRunnerDispatchBaseImpl(HANDLE _hTaskRunnerServerHandle)
-                    : ThreadPoolWaitMangerForMultiThreading(_hTaskRunnerServerHandle)
-                {
-                }
-#endif
-
-                ~TaskRunnerDispatchBaseImpl()
-                {
-                    while (auto _pTask = oPendingTimerTaskQueue.Pop())
-                    {
-                        _pTask->Cancel();
-                        _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
-                        _pTask->Release();
-                    }
-
-                    while (auto _pTask = oPendingWaitTaskQueue.Pop())
-                    {
-                        _pTask->Cancel();
-                        _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
-                        _pTask->Release();
-                    }
-                }
-
-                void __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTimer) noexcept override
-                {
-                    if (!_pTimer)
-                        return;
-
-                    JoinPendingTaskQueue(oPendingTimerTaskQueue, std::move(_pTimer));
-                }
-
-                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pWait) noexcept override
-                {
-                    if (_pWait == nullptr || _pWait->hHandle == NULL)
-                        return E_INVALIDARG;
-
-                    JoinPendingTaskQueue(oPendingWaitTaskQueue, std::move(_pWait));
-                    return S_OK;
-                }
-
-            protected:
-                size_t ProcessingPendingTaskQueue() noexcept
-                {
-                    size_t _cTaskProcessed = 0;
-                    for (;;)
-                    {
-                        auto _pTimerTask = oPendingTimerTaskQueue.Pop();
-                        if (!_pTimerTask)
-                            break;
-
-                        YY::Sync::Subtract(&fFlags, WakeupRefOnceRaw);
-                        auto _hr = ThreadPoolTimerManger::SetTimerInternal(RefPtr<Timer>::FromPtr(_pTimerTask));
-                        if (FAILED(_hr))
-                        {
-                            ++_cTaskProcessed;
-                        }
-                    }
-
-                    for (;;)
-                    {
-                        auto _pWait = oPendingWaitTaskQueue.Pop();
-                        if (!_pWait)
-                            break;
-
-                        YY::Sync::Subtract(&fFlags, WakeupRefOnceRaw);
-                        auto _hr = ThreadPoolWaitMangerForMultiThreading::SetWaitInternal(RefPtr<Wait>::FromPtr(_pWait));
-                        if (_hr == S_FALSE ||  FAILED(_hr))
-                        {
-                            ++_cTaskProcessed;
-                        }
-                    }
-                    return _cTaskProcessed;
-                }
-
-                void __YYAPI DispatchTimerTask(RefPtr<Timer> _pTimerTask) override
-                {
-                    if (_pTimerTask)
-                    {
-                        DispatchTask(std::move(_pTimerTask));
-                    }
-                }
-
-                void __YYAPI DispatchWaitTask(RefPtr<Wait> _pWaitTask) override
-                {
-                    if (_pWaitTask)
-                    {
-                        DispatchTask(std::move(_pWaitTask));
-                    }
-                }
-
-                template<typename TaskType>
-                void __YYAPI JoinPendingTaskQueue(InterlockedQueue<TaskType>& _oPendingTaskQueue, _In_ RefPtr<TaskType> _pTask) noexcept
-                {
-                    // 先增加任务计数，防止这段时间，服务线程不必要的意外归还线程池
-                    const auto _nNewDispatchTaskRef = YY::Sync::Increment(&nDispatchTaskRef);
-                    for (;;)
-                    {
-                        if (!Sync::BitSet(&fFlags, PendingTaskQueuePushLockBitIndex))
-                        {
-                            _oPendingTaskQueue.Push(_pTask.Detach());
-                            const auto _uNewFlags = Sync::Add(&fFlags, UnlockQueuePushLockBitAndWakeupRefOnceRaw);
-                            static_cast<DerivedClass*>(this)->Weakup(_nNewDispatchTaskRef, _uNewFlags);
-                            break;
-                        }
-                    }
-
-                    return;
-                }
-            };
-
 #ifdef _WIN32
             /// <summary>
-            /// 用于Windows XP以及更高版本的Task调度器。
-            /// 早期版本的系统 IoCompletionPort 无法等待，始终处于有信号状态。因此需要这个特殊的调度器。
-            /// 此调度器普通状态下会启动二个线程：
-            /// 其中一个线程专门用来处理 IoCompletionPort。
-            /// 另外一个线程用于处理TimerManger与WaitManger。
+            /// 用于Windows Task调度器。主要服务于SequencedTaskRunner。
             /// </summary>
-            class TaskRunnerDispatchForWindowsXPOrLater
-                : public TaskRunnerDispatchBaseImpl<TaskRunnerDispatchForWindowsXPOrLater>
+            class TaskRunnerDispatchForWindows : public TaskRunnerDispatch
             {
-            private:
-                HANDLE hIoCompletionPort = NULL;
-                volatile int32_t nIoCompletionPortTaskRef = 0ul;
-
             public:
-                TaskRunnerDispatchForWindowsXPOrLater()
-                    : TaskRunnerDispatchBaseImpl(CreateEventW(nullptr, FALSE, FALSE, nullptr))
-                    , hIoCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1u))
-                {
-                }
-
-                ~TaskRunnerDispatchForWindowsXPOrLater()
-                {
-                    CloseHandle(hIoCompletionPort);
-                    YY::Exchange(&nDispatchTaskRef, 0);
-                    SetEvent(oDefaultWaitBlock.hTaskRunnerServerHandle);
-                }
+                constexpr TaskRunnerDispatchForWindows() = default;
 
                 bool __YYAPI BindIO(_In_ HANDLE _hHandle) const noexcept override
                 {
@@ -202,150 +31,145 @@ namespace YY
                         return false;
                     }
 
-                    if (CreateIoCompletionPort(_hHandle, hIoCompletionPort, 0, 1) != hIoCompletionPort)
-                    {
-                        return false;
-                    }
+                    // 使用 BindIoCompletionCallback以获得更加友好的线程池调度。
+                    // XP的线程池接口直接再Wait函数中执行回调，刚好方便YY.Base将任务调度到对应的TaskRunner。
+                    const auto _bRet = BindIoCompletionCallback(
+                        _hHandle,
+                        [](DWORD _uErrorCode, DWORD _cbNumberOfBytesTransfered, LPOVERLAPPED _pOverlapped)
+                        {
+                            auto _pDispatchTask = RefPtr<IoTaskEntry>::FromPtr(static_cast<IoTaskEntry*>(_pOverlapped));
+                            if (!_pDispatchTask)
+                                return;
 
-                    return true;
+                            // 错误代码如果已经设置，那么可能调用者线程已经事先处理了。
+                            if (_pDispatchTask->OnComplete(_uErrorCode))
+                            {
+                                DispatchTask(std::move(_pDispatchTask));
+                            }
+                        },
+                        0);
+
+                    return _bRet;
                 }
 
                 void __YYAPI StartIo() noexcept override
                 {
-                    const auto _nNewIoCompletionPortTaskRef = YY::Sync::Increment(&nIoCompletionPortTaskRef);
-                    if (_nNewIoCompletionPortTaskRef == 1)
-                    {
-                        auto _bRet = TrySubmitThreadpoolCallback(
-                            [](_Inout_ PTP_CALLBACK_INSTANCE _pInstance,
-                                _In_   PVOID _pContext)
-                            {
-                                auto _pTask = reinterpret_cast<TaskRunnerDispatchForWindowsXPOrLater*>(_pContext);
-                                SetThreadDescription(GetCurrentThread(), L"IOCP调度线程");
-                                _pTask->ExecuteIoCompletionPort();
-                                SetThreadDescription(GetCurrentThread(), L"");
-                            },
-                            this,
-                            nullptr);
-
-                        if (!_bRet)
-                        {
-                            throw Exception(HRESULT_From_LSTATUS(GetLastError()));
-                        }
-                    }
                 }
 
-                void __YYAPI Weakup(int32_t _nNewDispatchTaskRef, uint32_t _uNewFlags = UINT32_MAX)
+                void __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTimer) noexcept override
                 {
-                    if (_nNewDispatchTaskRef < 1)
+                    if (!_pTimer)
+                        return;
+
+                    if (HANDLE _hThreadPoolTimer = YY::ExchangePoint(&_pTimer->hThreadPoolTimer, nullptr))
                     {
-                        // 当前一部分Task因为时序发生抢跑时，短时间里引用计数可能会小于 1，甚至小于 0
-                        // 这时计数恢复时，任务其实已经被执行了。这时唤醒时我们不用做任何事情。
-                    }
-                    else if (_nNewDispatchTaskRef == 1)
-                    {
-                        // 之前等待任务计数是0，这说明它没有线程，我们需要给它安排一个线程。
-                        auto _bRet = TrySubmitThreadpoolCallback(
-                            [](_Inout_ PTP_CALLBACK_INSTANCE _pInstance,
-                                _In_   PVOID _pContext)
+                        if (_hThreadPoolTimer != INVALID_HANDLE_VALUE)
+                        {
+                            if (DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL))
                             {
-                                auto _pTask = reinterpret_cast<TaskRunnerDispatchForWindowsXPOrLater*>(_pContext);
-                                SetThreadDescription(GetCurrentThread(), L"Timer/Wait调度线程");
-                                _pTask->ExecuteTaskRunner();
-                                SetThreadDescription(GetCurrentThread(), L"");
-                            },
-                            this,
-                            nullptr);
-
-                        if (!_bRet)
-                        {
-                            throw Exception(HRESULT_From_LSTATUS(GetLastError()));
-                        }
-                    }
-                    else if (_uNewFlags < WakeupRefOnceRaw * 2)
-                    {
-                        // 之前的WakeupRef计数为 0，所以我们需要重新唤醒 Dispatch 线程。
-                        if (!SetEvent(oDefaultWaitBlock.hTaskRunnerServerHandle))
-                        {
-                            throw Exception(HRESULT_From_LSTATUS(GetLastError()));
-                        }
-                    }
-                }
-
-            private:
-                void __YYAPI ExecuteIoCompletionPort() noexcept
-                {
-                    uint32_t _cTaskProcessed = 0;
-                    OVERLAPPED_ENTRY _oCompletionPortEntries[16];
-                    ULONG _uNumEntriesRemoved;
-                    for(;;)
-                    {
-                        if (YY::Sync::Subtract(&nIoCompletionPortTaskRef, _cTaskProcessed) <= 0)
-                            return;
-
-                        _cTaskProcessed = 0;
-                        auto _bRet = GetQueuedCompletionStatusEx(hIoCompletionPort, _oCompletionPortEntries, std::size(_oCompletionPortEntries), &_uNumEntriesRemoved, INFINITE, FALSE);
-                        if (!_bRet)
-                        {
-                            const auto _lStatus = GetLastError();
-                            if (_lStatus == WAIT_TIMEOUT || _lStatus == WAIT_IO_COMPLETION)
-                            {
-                                // 非意外错误
-                                continue;
+                                _pTimer.Get()->ReleaseWeak();
                             }
-                            else
+                        }
+                    }
+
+                    const auto _uCurrent = TickCount::GetNow();
+                    const auto _iDueTime = (_pTimer->uExpire - _uCurrent).GetTotalMilliseconds();
+                    if (_iDueTime <= 0)
+                    {
+                        _pTimer->uExpire = _uCurrent;
+                        DispatchTask(std::move(_pTimer));
+                    }
+                    else
+                    {
+                        _pTimer.Get()->AddWeakRef();
+                        // 我们使用 CreateTimerQueueTimer这是因为它允许我们在线程池线程中执行回调，没有额外的上下文切换开销。
+                        auto _bRet = CreateTimerQueueTimer(
+                            &_pTimer->hThreadPoolTimer,
+                            NULL,
+                            [](PVOID _pParameter, BOOLEAN _bTimerFired)
                             {
-                                // ERROR_ABANDONED_WAIT_0 ： 这句柄关闭，线程应该退出了？所以我们也可以退出了？
+                                YY::WeakPtr<Timer> _pTimerWeak(reinterpret_cast<WeakPtrRef<Timer>*>(_pParameter));
+                                auto _pTimer = _pTimerWeak.Get();
+                                if (!_pTimer)
+                                    return;
+
+                                if (HANDLE _hThreadPoolTimer = YY::ExchangePoint(&_pTimer->hThreadPoolTimer, nullptr))
+                                {
+                                    if (_hThreadPoolTimer != INVALID_HANDLE_VALUE)
+                                    {
+                                        DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL);
+                                    }
+                                }
+
+                                DispatchTask(std::move(_pTimer));
+                            },
+                            _pTimer.Get(),
+                            _iDueTime,
+                            0,
+                            WT_EXECUTEINTIMERTHREAD | WT_EXECUTEONLYONCE);
+
+                        if (!_bRet)
+                        {
+                            auto _hr = __HRESULT_FROM_WIN32(GetLastError());
+                            _pTimer.Get()->ReleaseWeak();
+                            _pTimer->Wakeup(_hr);
+                            return;
+                        }
+                    }
+                }
+
+                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pWait) noexcept override
+                {
+                    if (_pWait == nullptr || _pWait->hHandle == NULL)
+                        return E_INVALIDARG;
+
+                    if (HANDLE _hThreadPoolWait = YY::ExchangePoint(&_pWait->hThreadPoolWait, NULL))
+                    {
+                        if (_hThreadPoolWait != INVALID_HANDLE_VALUE)
+                        {
+                            if (UnregisterWaitEx(_hThreadPoolWait, NULL))
+                            {
+                                _pWait.Get()->ReleaseWeak();
+                            }
+                        }
+                    }
+
+                    _pWait.Get()->AddWeakRef();
+                    // 我们使用 RegisterWaitForSingleObject 这是因为它允许我们在线程池线程中执行回调，没有额外的上下文切换开销。
+                    auto _bRet = RegisterWaitForSingleObject(
+                        &_pWait->hThreadPoolWait,
+                        _pWait->hHandle,
+                        [](PVOID _pParameter, BOOLEAN _bTimeout)
+                        {
+                            YY::WeakPtr<Wait> _pWaitWeak(reinterpret_cast<WeakPtrRef<Wait>*>(_pParameter));
+                            auto _pWait = _pWaitWeak.Get();
+                            if (!_pWait)
                                 return;
-                            }
-                        }
 
-                        for (ULONG _uIndex = 0; _uIndex != _uNumEntriesRemoved; ++_uIndex)
-                        {
-                            auto _pDispatchTask = RefPtr<IoTaskEntry>::FromPtr(static_cast<IoTaskEntry*>(_oCompletionPortEntries[_uIndex].lpOverlapped));
-                            if (!_pDispatchTask)
-                                continue;
-
-                            // 错误代码如果已经设置，那么可能调用者线程已经事先处理了。
-                            if (_pDispatchTask->OnComplete(DosErrorFormNtStatus(long(_pDispatchTask->Internal))))
+                            _pWait->uWaitResult = _bTimeout ? WAIT_TIMEOUT : WAIT_OBJECT_0;
+                            if (HANDLE _hThreadPoolWait = YY::ExchangePoint(&_pWait->hThreadPoolWait, NULL))
                             {
-                                DispatchTask(std::move(_pDispatchTask));
+                                if (_hThreadPoolWait != INVALID_HANDLE_VALUE)
+                                {
+                                    UnregisterWaitEx(_hThreadPoolWait, NULL);
+                                }
                             }
-                            ++_cTaskProcessed;
-                        }
-                    }
-                }
 
-                void __YYAPI ExecuteTaskRunner()
-                {
-                    size_t _cTaskProcessed = 0;
-                    for (;;)
+                            DispatchTask(std::move(_pWait));
+                        },
+                        _pWait.Get(),
+                        (_pWait->uTimeOut - TickCount::GetNow()).GetTotalMilliseconds(),
+                        WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE);
+
+                    if (!_bRet)
                     {
-                        auto _oCurrent = TickCount::GetNow();
-                        _cTaskProcessed += ProcessingTimerTasks(_oCurrent);
-                        _cTaskProcessed += ProcessingPendingTaskQueue();
-                        if (YY::Sync::Subtract(&nDispatchTaskRef, int32_t(_cTaskProcessed)) <= 0)
-                            return;
-
-                        _cTaskProcessed = 0;
-
-                        const auto _uTimerWakeupTickCount = GetMinimumWakeupTickCount();
-                        const auto _uWaitTaskWakeupTickCount = oDefaultWaitBlock.GetWakeupTickCountNolock(_oCurrent);
-                        auto _uWakeupTickCount = (std::min)(_uTimerWakeupTickCount, _uWaitTaskWakeupTickCount);
-                        const auto uWaitResult = WaitForMultipleObjectsEx(oDefaultWaitBlock.cWaitHandle, oDefaultWaitBlock.hWaitHandles, FALSE, GetWaitTimeSpan(_uWakeupTickCount), FALSE);
-                        if (uWaitResult == WAIT_OBJECT_0)
-                        {
-                            continue;
-                        }
-                        else if (uWaitResult == WAIT_TIMEOUT)
-                        {
-                            if (_uTimerWakeupTickCount < _uWaitTaskWakeupTickCount)
-                            {
-                                continue;
-                            }
-                        }
-                        
-                        _cTaskProcessed += ProcessingWaitTasks(oDefaultWaitBlock, uWaitResult, oDefaultWaitBlock.cWaitHandle);
+                        auto _hr = __HRESULT_FROM_WIN32(GetLastError());
+                        _pWait.Get()->ReleaseWeak();
+                        _pWait->Wakeup(_hr);
+                        return _hr;
                     }
+
+                    return S_OK;
                 }
             };
 #endif
@@ -356,7 +180,7 @@ namespace YY
                 if (!s_pCurrentTaskRunnerDispatch)
                 {
 #ifdef _WIN32
-                    static TaskRunnerDispatchForWindowsXPOrLater s_TaskRunnerDispatch;
+                    static TaskRunnerDispatchForWindows s_TaskRunnerDispatch;
                     s_pCurrentTaskRunnerDispatch = &s_TaskRunnerDispatch;
 #else
 #error "其他系统尚未适配"

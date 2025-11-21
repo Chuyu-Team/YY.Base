@@ -1,15 +1,10 @@
 ﻿#pragma once
 
 #include <YY/Base/Threading/TaskRunner.h>
-#include <YY/Base/Sync/Interlocked.h>
 #include <YY/Base/Memory/WeakPtr.h>
-#include <YY/Base/Time/TickCount.h>
-#include <YY/Base/Sync/InterlockedQueue.h>
-#include <YY/Base/Containers/BitMap.h>
-#include <YY/Base/Threading/ProcessThreads.h>
+#include <YY/Base/Memory/RefPtr.h>
 
-#include "ThreadPoolTimerManger.h"
-#include "ThreadPoolWaitManger.h"
+#include "ThreadPool.h"
 
 #pragma pack(push, __YY_PACKING)
 

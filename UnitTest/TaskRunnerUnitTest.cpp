@@ -260,7 +260,7 @@ namespace TaskRunnerUnitTest
 
             WaitForSingleObject(_hEvent, 5000);
 
-            Assert::IsTrue(nCount == 5);
+            Assert::AreEqual(nCount, 5);
             _pTimer = nullptr;
             _pTaskRunner = nullptr;
 
@@ -277,7 +277,7 @@ namespace TaskRunnerUnitTest
                 volatile uint32_t _uWaitResultCount = 0;
                 volatile UINT64 _uTickCount = 0;
 
-                _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
+                auto _pWait = _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
                     {
                         if (_uWaitResultT == WAIT_OBJECT_0)
                         {
@@ -306,12 +306,14 @@ namespace TaskRunnerUnitTest
             // 超多句柄等待情况测试
             {
                 HANDLE _hEvents[300];
+                YY::RefPtr<Wait> _pWaits[300];
                 volatile uint32_t _uWaitResultCount = 0;
 
-                for (auto& _hEvent : _hEvents)
+                for (size_t i = 0; i != std::size(_hEvents); ++i)
                 {
+                    auto& _hEvent = _hEvents[i];
                     _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-                    _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
+                    _pWaits[i] = _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
                         {
                             if (_uWaitResultT == WAIT_OBJECT_0)
                             {
@@ -362,7 +364,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
 
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
@@ -374,10 +376,11 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
             SetEvent(_hEvent);
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));
+            Assert::AreEqual(DWORD(_uWaitResult), DWORD(WAIT_OBJECT_0));
             // CloseHandle(_hEvent);
         }
     };
@@ -748,7 +751,7 @@ namespace TaskRunnerUnitTest
                     volatile uint32_t _uWaitResultCount = 0;
                     volatile UINT64 _uTickCount = 0;
 
-                    _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
+                    auto _pWait = _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
                         {
                             if (_uWaitResultT == WAIT_OBJECT_0)
                             {
@@ -771,12 +774,15 @@ namespace TaskRunnerUnitTest
                 // 超多句柄等待情况测试
                 {
                     HANDLE _hEvents[300];
+                    YY::RefPtr<Wait> _pWaits[300];
                     volatile uint32_t _uWaitResultCount = 0;
 
-                    for (auto& _hEvent : _hEvents)
+                    // for (auto& _hEvent : _hEvents)
+                    for (size_t i = 0; i != std::size(_hEvents); ++i)
                     {
+                        auto& _hEvent = _hEvents[i];
                         _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-                        _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
+                        _pWaits[i] = _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
                             {
                                 if (_uWaitResultT == WAIT_OBJECT_0)
                                 {
@@ -827,7 +833,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
 
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
@@ -839,7 +845,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
             SetEvent(_hEvent);
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));

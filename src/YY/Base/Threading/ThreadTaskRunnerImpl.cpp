@@ -123,13 +123,23 @@ namespace YY
                                 // uWakeupCount 已经归零，准备进入睡眠状态
 
                                 ProcessingTimerTasks();
-                                const auto _uWaitTime = GetWaitTimeSpan(GetMinimumWakeupTickCount());
-                                auto _uWaitResult = MsgWaitForMultipleObjectsEx(oDefaultWaitBlock.cWaitHandle, oDefaultWaitBlock.hWaitHandles, _uWaitTime, QS_ALLINPUT, MWMO_ALERTABLE);
+                                const auto _uWaitWakeupTickCount = ThreadTaskRunnerWaitManger::GetMinimumWakeupTickCount();
+                                const auto _uTimerWakeupTickCount = ThreadTaskRunnerTimerManger::GetMinimumWakeupTickCount();
+                                const auto _uWaitTime = GetWaitTimeSpan((std::min)(_uWaitWakeupTickCount, _uTimerWakeupTickCount));
+                                const auto _uWaitResult = MsgWaitForMultipleObjectsEx(cWaitHandle, hWaitHandles, _uWaitTime, QS_ALLINPUT, MWMO_ALERTABLE);
                                 // 消息循环本身因为处于激活状态，所以，重新 + 1
                                 Sync::Add(&uWakeupCountAndPushLock, uint32_t(WakeupOnceRaw));
 
+                                if (_uWaitResult == WAIT_TIMEOUT)
+                                {
+                                    if(_uTimerWakeupTickCount < _uWaitWakeupTickCount)
+                                    {
+                                        break;
+                                    }
+                                }
+
                                 // 因为是MsgWait，额外 cWaitHandle + 1，代表消息循环
-                                ProcessingWaitTasks(_uWaitResult, oDefaultWaitBlock.cWaitHandle + 1, oDefaultWaitBlock.cWaitHandle);
+                                ProcessingWaitTasks(_uWaitResult, cWaitHandle + 1, cWaitHandle);
                             }
                             break;
                         }
@@ -180,13 +190,13 @@ namespace YY
                             else
                             {
                                 // uWakeupCount 已经归零，准备进入睡眠状态
-                                const auto _uTimerWakeupTickCount = GetMinimumWakeupTickCount();
-                                const auto _uWaitWakeupTickCount = oDefaultWaitBlock.GetWakeupTickCountNolock(_oCurrent);
-                                const auto _uWaitResult = MsgWaitForMultipleObjectsEx(oDefaultWaitBlock.cWaitHandle, oDefaultWaitBlock.hWaitHandles, GetWaitTimeSpan((std::min)(_uTimerWakeupTickCount, _uWaitWakeupTickCount)), QS_ALLINPUT, MWMO_ALERTABLE);
+                                const auto _uTimerWakeupTickCount = ThreadTaskRunnerTimerManger::GetMinimumWakeupTickCount();
+                                const auto _uWaitWakeupTickCount = ThreadTaskRunnerWaitManger::GetMinimumWakeupTickCount();
+                                const auto _uWaitResult = MsgWaitForMultipleObjectsEx(cWaitHandle, hWaitHandles, GetWaitTimeSpan((std::min)(_uTimerWakeupTickCount, _uWaitWakeupTickCount)), QS_ALLINPUT, MWMO_ALERTABLE);
                                 // 消息循环本身因为处于激活状态，所以，重新 + 1
                                 Sync::Add(&uWakeupCountAndPushLock, uint32_t(WakeupOnceRaw));
 
-                                if (_uWaitResult == WAIT_OBJECT_0 + oDefaultWaitBlock.cWaitHandle)
+                                if (_uWaitResult == WAIT_OBJECT_0 + cWaitHandle)
                                 {
                                     for (;;)
                                     {
@@ -218,7 +228,7 @@ namespace YY
                                     else
                                     {
                                         // 因为是MsgWait，额外 cWaitHandle，代表消息循环
-                                        ProcessingWaitTasks(_uWaitResult, oDefaultWaitBlock.cWaitHandle + 1, oDefaultWaitBlock.cWaitHandle);
+                                        ProcessingWaitTasks(_uWaitResult, cWaitHandle + 1, cWaitHandle);
                                     }
                                 }
                             }
@@ -295,12 +305,12 @@ namespace YY
                 {
                     return PostTask([this, _pTask]() mutable
                         {
-                            ThreadPoolTimerManger::SetTimerInternal(std::move(_pTask));
+                            ThreadTaskRunnerTimerManger::SetTimerInternal(std::move(_pTask));
                         });
                 }
                 else
                 {
-                    return ThreadPoolTimerManger::SetTimerInternal(std::move(_pTask));
+                    return ThreadTaskRunnerTimerManger::SetTimerInternal(std::move(_pTask));
                 }
             }
 
@@ -322,13 +332,29 @@ namespace YY
                 else
                 {
                     _pTask->pOwnerTaskRunnerWeak = this;
-                    auto _hr = ThreadPoolWaitMangerForSingleThreading::SetWaitInternal(_pTask);
+                    auto _hr = ThreadTaskRunnerWaitManger::SetWaitInternal(_pTask);
                     if (_hr == E_NOTIMPL)
                     {
                         _hr = TaskRunnerDispatch::Get()->SetWaitInternal(std::move(_pTask));
                     }
                     return _hr;
                 }
+            }
+
+            HRESULT __YYAPI ThreadTaskRunnerImpl::DeleteWaitInternal(Wait* _pTask)
+            {
+                if (TaskRunner::GetCurrent() == this)
+                {
+                    const auto _uIndex = ThreadTaskRunnerWaitManger::FindWaitHandle(_pTask->hHandle);
+                    ThreadTaskRunnerWaitManger::RemoveWaitHandleByIndex(_uIndex);
+                }
+                else
+                {
+                    // 激活后，等待时会自动检查
+                    Wakeup();
+                }
+
+                return S_OK;
             }
 
             void __YYAPI ThreadTaskRunnerImpl::DispatchTimerTask(RefPtr<Timer> _pTimerTask)

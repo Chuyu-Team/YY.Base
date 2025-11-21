@@ -63,6 +63,8 @@ namespace YY
                 TaskEntry(const TaskEntry&) = delete;
                 TaskEntry& operator=(const TaskEntry&) = delete;
 
+                ~TaskEntry();
+
                 void __YYAPI operator()()
                 {
                     Wakeup(RunTask());
@@ -87,10 +89,7 @@ namespace YY
                     return HasFlags(fStyle, TaskEntryStyle::Canceled);
                 }
 
-                void __YYAPI Cancel()
-                {
-                    YY::Sync::BitSet((int32_t*)&fStyle, 2);
-                }
+                virtual bool __YYAPI Cancel();
 
                 virtual HRESULT __YYAPI RunTask();
             };
@@ -98,6 +97,12 @@ namespace YY
             struct Timer : public TaskEntry
             {
                 std::function<bool(void)> pfnTimerCallback;
+
+                // 内部Timer句柄
+                //   * 如果值为 NULL：该对象未关联任何TaskRunner
+                //   * 如果值为 INVALID_HANDLE_VALUE：代表当前线程负责该任务
+                //   * 其他值：线程池负责该任务
+                HANDLE hThreadPoolTimer = nullptr;
 
                 // 任务到期时间
                 TickCount uExpire;
@@ -108,19 +113,26 @@ namespace YY
                 Timer* pNext = nullptr;
 
                 HRESULT __YYAPI RunTask() override;
+
+                bool __YYAPI Cancel() override;
             };
 
             struct Wait : public TaskEntry
             {
+                // 内部Wait句柄
+                //   * 如果值为 NULL：该对象未关联任何TaskTunner
+                //   * 如果值为 INVALID_HANDLE_VALUE：代表当前线程负责该任务
+                //   * 其他值：线程池负责该任务
+                HANDLE hThreadPoolWait = nullptr;
                 HANDLE hHandle = nullptr;
                 TickCount uTimeOut;
                 DWORD uWaitResult = WAIT_FAILED;
 
                 std::function<bool(DWORD _uWaitResult)> pfnWaitTaskCallback;
-                Wait* pPrior = nullptr;
-                Wait* pNext = nullptr;
 
                 HRESULT __YYAPI RunTask() override;
+
+                bool __YYAPI Cancel() override;
             };
 
 #if defined(_WIN32)
@@ -365,11 +377,13 @@ namespace YY
                 /// * 如果需要定时器继续排队，请返回 true。
                 /// * 如果后续不在需要执行定时器，请返回 false。
                 /// </param>
-                /// <returns></returns>
+                /// <returns>
+                /// 返回 Timer对象，Timer对象可以调用Cancel取消任务。如果Timer对象被销毁，则等同于取消任务。
+                /// </returns>
                 RefPtr<Timer> __YYAPI CreateTimer(_In_ TimeSpan _uInterval, _In_ std::function<bool(void)>&& _pfnTaskCallback);
 
                 /// <summary>
-                /// 监听指定句柄状态。如果句柄处于有信号状态则调用 _pfnTaskCallback。如果同一个句柄多次调用CreateWait，对应的_pfnTaskCallback也将多次调用。
+                /// 监听指定句柄状态。如果句柄处于有信号状态则调用 _pfnTaskCallback。
                 /// 
                 /// 
                 /// 注意：虽然可以无数量限制的等待句柄，但是数量越多开销可能越高。TaskRunner实现中，每个线程最多等待63个句柄。
@@ -377,7 +391,7 @@ namespace YY
                 /// 如果等待句柄数量小于等于 63，这时几乎没有额外开销，因为当前线程自身即可等待这些句柄。
                 /// 如果等待句柄数量大于等于 64，从第64个句柄开始，剩余句柄将安排到单独的线程，每个线程最多等待63个句柄，因此等待的句柄数量越多，额外进行安排的线程也就越多。
                 /// </summary>
-                /// <param name="_hHandle">需要监听的句柄</param>
+                /// <param name="_hHandle">需要监听的句柄，注意同一个句柄不能重复等待。</param>
                 /// <param name="_nWaitTimeOut">最大超时等待的时间。</param>
                 /// <param name="_pfnTaskCallback">有信号时、等待失败，或者超时时将触发的回调函数。
                 /// _uWaitResult 可以是WAIT_ABANDONED、WAIT_OBJECT_0、WAIT_TIMEOUT、WAIT_FAILED。
@@ -386,7 +400,7 @@ namespace YY
                 /// * 如果句柄只等待一次，请返回 false。
                 /// </param>
                 /// <returns>
-                /// 返回 Wait对象，Wait对象可以取消任务。
+                /// 返回 Wait对象，Wait对象可以调用Cancel取消任务。如果Wait对象被销毁，则等同于取消任务。
                 /// 如果函数返回 nullptr，那么可能是句柄无效、_pfnTaskCallback无效亦或者内存不足。
                 /// </returns>
                 RefPtr<Wait> __YYAPI CreateWait(
@@ -411,6 +425,8 @@ namespace YY
                 virtual HRESULT __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTask);
 
                 virtual HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pTask);
+
+                virtual HRESULT __YYAPI DeleteWaitInternal(_In_ Wait* _pTask);
             };
 
             // 按顺序执行的Task（不一定绑定固定物理线程，只保证任务串行）

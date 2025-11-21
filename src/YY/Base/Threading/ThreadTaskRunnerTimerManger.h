@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include <YY/Base/YY.h>
 #include <YY/Base/Threading/TaskRunner.h>
-#include <YY/Base/Sync/InterlockedQueue.h>
 #include <YY/Base/Containers/BitMap.h>
 #include <YY/Base/Containers/SingleLinkedList.h>
 
@@ -32,7 +31,7 @@ namespace YY
             };
 
             // 采用时间轮算法: UI库一般定时数百毫秒或者几分钟所以轮子设计时越容纳1小时左右，超过1小时的全部进入 arrTimingWheelOthers
-            class ThreadPoolTimerManger
+            class ThreadTaskRunnerTimerManger
             {
             private:
                 // 时间轮的最小分辨率，单位 ms
@@ -57,7 +56,7 @@ namespace YY
                 BitMap<sizeof(arrTimingWheel3) / sizeof(arrTimingWheel3[0])> oTimingWheel3BitMap;
 
             protected:
-                ThreadPoolTimerManger()
+                ThreadTaskRunnerTimerManger()
                     : uTimingWheelLastTickCount(TickCount::GetNow())
                     , uTimingWheelBasePreMilliseconds(uTimingWheelLastTickCount.GetTotalMilliseconds())
                 {
@@ -76,6 +75,7 @@ namespace YY
                         return S_OK;
                     }
 
+                    _pDispatchTask->hThreadPoolTimer = INVALID_HANDLE_VALUE;
                     auto _uBase1 = (uTimingWheelBasePreMilliseconds + _uSpanBlock - 1) / kTimingWheelBaseTick;
 
                     if (_uSpanBlock <= kTimingWheelBaseTick * std::size(arrTimingWheel1))
@@ -375,6 +375,7 @@ namespace YY
                     size_t _cTaskProcessed = 0;
                     while (auto _pItem = _oTimerPendingDispatchList.Pop())
                     {
+                        _pItem->hThreadPoolTimer = NULL;
                         DispatchTimerTask(RefPtr<Timer>::FromPtr(_pItem));
                         ++_cTaskProcessed;
                     }

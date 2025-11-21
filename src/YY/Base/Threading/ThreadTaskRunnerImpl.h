@@ -8,8 +8,8 @@
 #include <YY/Base/Threading/ProcessThreads.h>
 
 #include "TaskRunnerImpl.h"
-#include "ThreadPoolTimerManger.h"
-#include "ThreadPoolWaitManger.h"
+#include "ThreadTaskRunnerTimerManger.h"
+#include "ThreadTaskRunnerWaitManger.h"
 
 #pragma pack(push, __YY_PACKING)
 
@@ -28,8 +28,8 @@ namespace YY
 
             class ThreadTaskRunnerImpl
                 : public ThreadTaskRunnerBaseImpl
-                , public ThreadPoolTimerManger
-                , public ThreadPoolWaitMangerForSingleThreading
+                , public ThreadTaskRunnerTimerManger
+                , public ThreadTaskRunnerWaitManger
             {
             private:
                 InterlockedQueue<TaskEntry> oTaskQueue;
@@ -109,6 +109,8 @@ namespace YY
                 HRESULT __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTask) override;
 
                 HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pTask) override;
+
+                HRESULT __YYAPI DeleteWaitInternal(Wait* _pTask) override;
 
                 void __YYAPI DispatchTimerTask(RefPtr<Timer> _pTimerTask) override;
 
