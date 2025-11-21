@@ -87,7 +87,7 @@ namespace YY
                     return HasFlags(fStyle, TaskEntryStyle::Canceled);
                 }
 
-                void __YYAPI Cancel()
+                virtual void __YYAPI Cancel()
                 {
                     YY::Sync::BitSet((int32_t*)&fStyle, 2);
                 }
@@ -99,6 +99,8 @@ namespace YY
             {
                 std::function<bool(void)> pfnTimerCallback;
 
+                HANDLE hThreadPoolTimer = nullptr;
+
                 // 任务到期时间
                 TickCount uExpire;
 
@@ -108,10 +110,13 @@ namespace YY
                 Timer* pNext = nullptr;
 
                 HRESULT __YYAPI RunTask() override;
+
+                void __YYAPI Cancel() override;
             };
 
             struct Wait : public TaskEntry
             {
+                HANDLE hThreadPoolWait = nullptr;
                 HANDLE hHandle = nullptr;
                 TickCount uTimeOut;
                 DWORD uWaitResult = WAIT_FAILED;
@@ -121,6 +126,8 @@ namespace YY
                 Wait* pNext = nullptr;
 
                 HRESULT __YYAPI RunTask() override;
+
+                void __YYAPI Cancel() override;
             };
 
 #if defined(_WIN32)

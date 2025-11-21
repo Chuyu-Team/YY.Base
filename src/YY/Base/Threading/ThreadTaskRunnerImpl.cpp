@@ -312,6 +312,12 @@ namespace YY
                 if (_pTask->IsCanceled())
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
+                if (_pTask->hThreadPoolWait)
+                {
+                    _pTask->pOwnerTaskRunnerWeak = this;
+                    return TaskRunnerDispatch::Get()->SetWaitInternal(std::move(_pTask));
+                }
+
                 if (uThreadId != GetCurrentThreadId())
                 {
                     return PostTask([this, _pTask]() mutable

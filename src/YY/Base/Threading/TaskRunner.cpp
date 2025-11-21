@@ -79,6 +79,18 @@ namespace YY
                 }
             }
 
+            void __YYAPI Timer::Cancel()
+            {
+                TaskEntry::Cancel();
+
+                if (HANDLE _hThreadPoolTimer = YY::ExchangePoint(&hThreadPoolTimer, nullptr))
+                {
+                    DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL);
+                }
+
+                return;
+            }
+
             Threading::TaskRunner::TaskRunner()
                 : uTaskRunnerId(GenerateNewTaskRunnerId())
             {
@@ -464,6 +476,18 @@ namespace YY
                 {
                     return HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
+            }
+
+            void __YYAPI Wait::Cancel()
+            {
+                TaskEntry::Cancel();
+
+                if (HANDLE _hThreadPoolWait = YY::ExchangePoint(&hThreadPoolWait, nullptr))
+                {
+                    UnregisterWaitEx(_hThreadPoolWait, NULL);
+                }
+
+                return;
             }
         } // namespace Threading
     }

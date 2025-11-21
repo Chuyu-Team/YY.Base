@@ -260,7 +260,7 @@ namespace TaskRunnerUnitTest
 
             WaitForSingleObject(_hEvent, 5000);
 
-            Assert::IsTrue(nCount == 5);
+            Assert::AreEqual(nCount, 5);
             _pTimer = nullptr;
             _pTaskRunner = nullptr;
 
@@ -362,7 +362,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
 
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
@@ -374,10 +374,11 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
             SetEvent(_hEvent);
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));
+            Assert::AreEqual(DWORD(_uWaitResult), DWORD(WAIT_OBJECT_0));
             // CloseHandle(_hEvent);
         }
     };
@@ -827,7 +828,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
 
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
@@ -839,7 +840,7 @@ namespace TaskRunnerUnitTest
                 [&_uWaitResult](DWORD _uWaitResultT)
                 {
                     _uWaitResult = _uWaitResultT;
-                    return true;
+                    return false;
                 });
             SetEvent(_hEvent);
             Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));
