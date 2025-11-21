@@ -23,8 +23,23 @@ namespace YY
                 WakeByAddressAll(&hr);
             }
 
-            bool __YYAPI TaskEntry::Wait(uint32_t _uMilliseconds)
+            bool __YYAPI TaskEntry::WaitTask(YY::TimeSpan _oTimeout)
             {
+                DWORD _uMilliseconds;
+                auto _iTimeoutMilliseconds = _oTimeout.GetTotalMilliseconds();
+                if (_iTimeoutMilliseconds <= 0)
+                {
+                    _uMilliseconds = 0;
+                }
+                else if (_iTimeoutMilliseconds > UINT32_MAX)
+                {
+                    _uMilliseconds = UINT32_MAX;
+                }
+                else
+                {
+                    _uMilliseconds = (DWORD)_iTimeoutMilliseconds;
+                }
+
                 HRESULT _hrTarget = E_PENDING;
                 return WaitOnAddress(&hr, &_hrTarget, sizeof(_hrTarget), _uMilliseconds);
             }
@@ -262,7 +277,7 @@ namespace YY
                 {
                     return _hr;
                 }
-                _oWorkEntry.Wait();
+                _oWorkEntry.WaitTask();
                 return _oWorkEntry.hr;
             }
 
