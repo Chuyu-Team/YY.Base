@@ -265,8 +265,10 @@ namespace YY
 
             HRESULT __YYAPI ThreadTaskRunnerImpl::PostTaskInternal(RefPtr<TaskEntry> _pTask)
             {
+                _pTask->hr = E_PENDING;
                 if (bStopWakeup)
                 {
+                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
 
@@ -295,10 +297,16 @@ namespace YY
             HRESULT __YYAPI ThreadTaskRunnerImpl::SetTimerInternal(RefPtr<Timer> _pTask)
             {
                 _pTask->pOwnerTaskRunnerWeak = this;
+                _pTask->hr = E_PENDING;
 
                 if (_pTask->IsCanceled())
                 {
+                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                }
+                else if (_pTask->uExpire.GetTicks() == 0 || (_pTask->uExpire - YY::TickCount::GetNow()).GetTotalMilliseconds() <= 0)
+                {
+                    return PostTaskInternal(RefPtr<TaskEntry>(std::move(_pTask)));
                 }
 
                 if (uThreadId != GetCurrentThreadId())
@@ -319,8 +327,12 @@ namespace YY
                 if (_pTask == nullptr || _pTask->hHandle == NULL)
                     return E_INVALIDARG;
 
+                _pTask->hr = E_PENDING;
                 if (_pTask->IsCanceled())
+                {
+                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                }
 
                 if (uThreadId != GetCurrentThreadId())
                 {

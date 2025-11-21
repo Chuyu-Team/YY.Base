@@ -68,6 +68,7 @@ namespace YY
                 {
                     if (_fFlags & StopWakeupRaw)
                     {
+                        _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                         return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                     }
                     else if (_fFlags & (1 << LockedQueuePushBitIndex))
