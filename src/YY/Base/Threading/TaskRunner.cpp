@@ -34,15 +34,18 @@ namespace YY
                 if (IsCanceled())
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
+                HRESULT _hr = S_OK;
                 try
                 {
                     pfnTaskCallback();
-                    return S_OK;
                 }
                 catch (const YY::Base::OperationCanceledException& _Exception)
                 {
-                    return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                    _hr = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
+
+                Wakeup(_hr);
+                return _hr;
             }
 
             HRESULT __YYAPI Timer::RunTask()
@@ -52,20 +55,25 @@ namespace YY
 
                 if (uInterval.GetTotalMilliseconds() <= 0)
                 {
-                    try
-                    {
-                        pfnTaskCallback();
-                        return S_OK;
-                    }
-                    catch (const YY::Base::OperationCanceledException& _Exception)
-                    {
-                        return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                    }
+                    return TaskEntry::RunTask();
                 }
                 else
                 {
+                    HRESULT _hr = S_OK;
+                    bool _bRet = false;
                     auto _uExpire = TickCount::GetNow() + uInterval;
-                    if (pfnTimerCallback())
+                    try
+                    {
+                        _bRet = pfnTimerCallback();
+                    }
+                    catch (const YY::Base::OperationCanceledException& _Exception)
+                    {
+                        _hr = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                    }
+
+                    Wakeup(_hr);
+
+                    if (_bRet)
                     {
                         auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get();
                         // 任务被取消？
@@ -75,7 +83,8 @@ namespace YY
                         uExpire = _uExpire;
                         return _pOwnerTaskRunner->SetTimerInternal(this);
                     }
-                    return S_OK;
+
+                    return _hr;
                 }
             }
 
@@ -311,35 +320,30 @@ namespace YY
             HRESULT __YYAPI TaskRunner::SetTimerInternal(RefPtr<Timer> _pTask)
             {
                 _pTask->pOwnerTaskRunnerWeak = this;
+                _pTask->hr = E_PENDING;
 
                 if (_pTask->IsCanceled())
                 {
+                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
-
-                if (_pTask->uExpire.GetTicks() == 0)
-                    return PostTaskInternal(std::move(_pTask));
-
-                // 现在的时间已经比过期时间大，那么立即触发任务，降低延迟
-                auto _uCurrent = TickCount::GetNow();
-                if (_pTask->uExpire <= _uCurrent)
+                else if (_pTask->uExpire.GetTicks() == 0 || (_pTask->uExpire - YY::TickCount::GetNow()).GetTotalMilliseconds() <= 0)
                 {
-                    _pTask->uExpire = _uCurrent;
                     return PostTaskInternal(std::move(_pTask));
                 }
-                else
-                {
-                    TaskRunnerDispatch::Get()->SetTimerInternal(std::move(_pTask));
-                    return S_OK;
-                }
+
+                TaskRunnerDispatch::Get()->SetTimerInternal(std::move(_pTask));
+                return S_OK;
             }
 
             HRESULT __YYAPI TaskRunner::SetWaitInternal(RefPtr<Wait> _pTask)
             {
                 _pTask->pOwnerTaskRunnerWeak = this;
+                _pTask->hr = E_PENDING;
 
                 if (_pTask->IsCanceled())
                 {
+                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
 
@@ -461,21 +465,27 @@ namespace YY
                 if (IsCanceled())
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
+                HRESULT _hr = S_OK;
+                bool _bRet = false;
                 try
                 {
-                    if (pfnWaitTaskCallback(uWaitResult))
-                    {
-                        if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
-                        {
-                            _pOwnerTaskRunner->SetWaitInternal(this);
-                        }
-                    }
-                    return S_OK;
+                    _bRet = pfnWaitTaskCallback(uWaitResult);
                 }
                 catch (const YY::Base::OperationCanceledException& _Exception)
                 {
-                    return HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                    _hr = HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
+
+                Wakeup(_hr);
+                if (_bRet)
+                {
+                    if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
+                    {
+                        _pOwnerTaskRunner->SetWaitInternal(this);
+                    }
+                }
+
+                return _hr;
             }
 
             void __YYAPI Wait::Cancel()

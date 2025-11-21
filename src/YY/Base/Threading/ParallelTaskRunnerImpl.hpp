@@ -225,6 +225,7 @@ namespace YY
 
                     if (TaskRunnerFlags.bStopWakeup)
                     {
+                        _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                         return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                     }
 

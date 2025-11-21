@@ -65,7 +65,7 @@ namespace YY
 
                 void __YYAPI operator()()
                 {
-                    Wakeup(RunTask());
+                    RunTask();
                 }
 
                 /// <summary>
