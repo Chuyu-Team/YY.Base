@@ -78,11 +78,21 @@ namespace YY
                 void __YYAPI Wakeup(_In_ HRESULT _hrCode);
 
                 /// <summary>
+                /// 阻塞等待任务完成或直到达到指定超时时间（默认无限等待）。
+                /// </summary>
+                /// <param name="_oTimeout">最大等待时间，类型为 YY::TimeSpan。默认值为 YY::TimeSpan::GetMax()，表示无限期等待。</param>
+                /// <returns>布尔值：如果在指定超时时间内等待成功（任务完成等）则返回 true；如果超时则返回 false。</returns>
+                bool __YYAPI WaitTask(YY::TimeSpan _oTimeout = YY::TimeSpan::GetMax());
+
+                /// <summary>
                 /// 等待此任务完成。
                 /// </summary>
                 /// <param name="_uMilliseconds">需要等待的毫秒数。</param>
                 /// <returns></returns>
-                bool __YYAPI Wait(_In_ uint32_t _uMilliseconds = UINT32_MAX);
+                bool __YYAPI Wait(_In_ uint32_t _uMilliseconds = UINT32_MAX)
+                {
+                    return WaitTask(YY::TimeSpan::FromMilliseconds(_uMilliseconds));
+                }
 
                 bool __YYAPI IsCanceled() const noexcept
                 {
