@@ -35,7 +35,7 @@ namespace YY
 
                 bool __YYAPI RemoveWaitHandleByIndex(size_t _uRemoveIndex) noexcept
                 {
-                    if (cWaitHandle >= _uRemoveIndex)
+                    if (cWaitHandle <= _uRemoveIndex)
                         return false;
 
                     if (auto _pWaitTask = pWaitTaskWeakPtrs[_uRemoveIndex].Get())
