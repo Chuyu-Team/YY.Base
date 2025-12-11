@@ -367,7 +367,7 @@ namespace TaskRunnerUnitTest
                     return false;
                 });
 
-            Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
+            Assert::IsTrue(((TaskEntry*)_pWait.Get())->WaitTask(YY::TimeSpan::FromMilliseconds(600ul)));
             Assert::AreEqual(DWORD(_uWaitResult), DWORD(WAIT_TIMEOUT));
 
             _pWait = _pTaskRunner->CreateWait(
@@ -379,7 +379,7 @@ namespace TaskRunnerUnitTest
                     return false;
                 });
             SetEvent(_hEvent);
-            Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));
+            Assert::IsTrue(((TaskEntry*)_pWait.Get())->WaitTask(YY::TimeSpan::FromMilliseconds(100ul)));
             Assert::AreEqual(DWORD(_uWaitResult), DWORD(WAIT_OBJECT_0));
             // CloseHandle(_hEvent);
         }
@@ -836,7 +836,7 @@ namespace TaskRunnerUnitTest
                     return false;
                 });
 
-            Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(600ul));
+            Assert::IsTrue(_pWait->WaitTask(YY::TimeSpan::FromMilliseconds(600ul)));
             Assert::AreEqual(DWORD(_uWaitResult), DWORD(WAIT_TIMEOUT));
 
             _pWait = _pTaskRunner->CreateWait(
@@ -848,8 +848,76 @@ namespace TaskRunnerUnitTest
                     return false;
                 });
             SetEvent(_hEvent);
-            Assert::IsTrue(((TaskEntry*)_pWait.Get())->Wait(100ul));
+            Assert::IsTrue((_pWait->WaitTask(YY::TimeSpan::FromMilliseconds(100ul))));
             // CloseHandle(_hEvent);
         }
+    };
+
+    TEST_CLASS(CommonTaskRunnerUnitTest)
+    {
+    public:
+#if defined(_HAS_CXX20) && _HAS_CXX20
+        TEST_METHOD(AsyncSleep)
+        {
+            const auto _hrPending = E_PENDING;
+
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+
+            auto _pHr = std::make_shared<HRESULT>(_hrPending);
+            std::weak_ptr<HRESULT> _pWeakHr = _pHr;
+            _pTaskRunner->PostTask(
+                [_pWeakHr]() -> YY::Coroutine<void>
+                {
+                    auto _pHr = _pWeakHr.lock();
+                    if (!_pHr)
+                        co_return;
+
+                    *_pHr = co_await YY::TaskRunner::AsyncSleep(YY::TimeSpan::FromMilliseconds(500));
+                    WakeByAddressAll(_pHr.get());
+                    co_return;
+                });
+
+            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 2000);
+
+            Assert::AreEqual(HRESULT(S_OK), HRESULT(*_pHr));
+        }
+#endif
+
+#if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
+        TEST_METHOD(AsyncWaitForObject)
+        {
+            const auto _hrPending = E_PENDING;
+
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+
+            auto _pHr = std::make_shared<HRESULT>(_hrPending);
+            std::weak_ptr<HRESULT> _pWeakHr = _pHr;
+            _pTaskRunner->PostTask(
+                [_pWeakHr]() -> YY::Coroutine<void>
+                {
+                    auto _pHr = _pWeakHr.lock();
+                    if (!_pHr)
+                        co_return;
+
+                    auto _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+
+                    auto _uResult = co_await YY::TaskRunner::AsyncWaitForObject(_hEvent, YY::TimeSpan::FromMilliseconds(100));
+
+                    Assert::AreEqual(DWORD(WAIT_TIMEOUT), DWORD(_uResult));
+
+                    SetEvent(_hEvent);
+                    _uResult = co_await YY::TaskRunner::AsyncWaitForObject(_hEvent, YY::TimeSpan::FromMilliseconds(100));
+                    Assert::AreEqual(DWORD(WAIT_OBJECT_0), DWORD(_uResult));
+
+                    *_pHr.get() = S_OK;
+                    WakeByAddressAll(_pHr.get());
+                    co_return;
+                });
+
+            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 2000);
+
+            Assert::AreEqual(HRESULT(S_OK), HRESULT(*_pHr));
+        }
+#endif
     };
 } // namespace UnitTest

@@ -333,6 +333,30 @@ namespace YY
 
                 virtual TaskRunnerStyle __YYAPI GetStyle() const noexcept = 0;
 
+#if defined(_HAS_CXX20) && _HAS_CXX20
+                /// <summary>
+                /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
+                /// </summary>
+                /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static TaskAwaiter<HRESULT> __YYAPI AsyncSleep(_In_ TimeSpan _uAfter);
+#endif
+
+#if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
+                /// <summary>
+                /// 异步等待指定对象并返回表示等待结果的 awaiter。
+                /// </summary>
+                /// <param name="_hHandle">要等待的对象句柄。</param>
+                /// <param name="_iWaitTimeOut">等待超时时间；可选，默认为 TimeSpan::GetMax()（表示最大/无限超时）。</param>
+                /// <returns>返回一个 TaskAwaiter<DWORD>，用于异步等待并在完成后获取等待结果，其结果可能值为：
+                /// * WAIT_ABANDONED
+                /// * WAIT_OBJECT_0
+                /// * WAIT_TIMEOUT
+                /// * WAIT_FAILED
+                /// </returns>
+                static TaskAwaiter<DWORD> __YYAPI AsyncWaitForObject(_In_ HANDLE _hHandle, _In_ TimeSpan _iWaitTimeOut = TimeSpan::GetMax());
+#endif
+
                 /// <summary>
                 /// 将任务异步执行。
                 /// </summary>

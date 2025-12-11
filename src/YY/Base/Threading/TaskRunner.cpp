@@ -162,6 +162,170 @@ namespace YY
                 return TaskRunnerDispatch::Get()->StartIo();
             }
 
+#if defined(_HAS_CXX20) && _HAS_CXX20
+            TaskAwaiter<HRESULT>__YYAPI TaskRunner::AsyncSleep(TimeSpan _uAfter)
+            {
+                const auto _uExpire = TickCount::GetNow() + _uAfter;
+
+                struct AsyncTaskEntry
+                    : public Timer
+                    , public TaskAwaiter<HRESULT>::RefData
+                {
+                    HRESULT _hrValue = E_PENDING;
+
+                    uint32_t __YYAPI AddRef() noexcept override
+                    {
+                        return Timer::AddRef();
+                    }
+
+                    uint32_t __YYAPI Release() noexcept override
+                    {
+                        return Timer::Release();
+                    }
+
+                    HRESULT __YYAPI RunTask() override
+                    {
+                        if (IsCanceled())
+                            return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+
+                        _hrValue = S_OK;
+                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
+                        if (_hHandle)
+                        {
+                            try
+                            {
+                                std::coroutine_handle<>::from_address(_hHandle).resume();
+                            }
+                            catch (const YY::Base::OperationCanceledException& _Exception)
+                            {
+                                _hrValue = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                            }
+                        }
+
+                        Wakeup(_hrValue);
+                        return _hrValue;
+                    }
+
+                    HRESULT __YYAPI Resume() noexcept override
+                    {
+                        return _hrValue;
+                    }
+                };
+
+                auto _pAsyncTaskEntry = RefPtr<AsyncTaskEntry>::Create();
+                if (!_pAsyncTaskEntry)
+                    throw Exception();
+
+                _pAsyncTaskEntry->uExpire = _uExpire;
+                HRESULT _hr = S_OK;
+                do
+                {
+                    auto _pTaskRunner = TaskRunner::GetCurrent();
+                    if (!_pTaskRunner)
+                    {
+                        _hr = E_UNEXPECTED;
+                        break;
+                    }
+
+                    _hr = _pTaskRunner->SetTimerInternal(_pAsyncTaskEntry);
+
+                } while (false);
+
+                if (_hr != S_OK)
+                {
+                    _pAsyncTaskEntry->hCoroutineHandle = (intptr_t)-1;
+                    _pAsyncTaskEntry->_hrValue = _hr;
+                }
+
+                return TaskAwaiter<HRESULT>(std::move(_pAsyncTaskEntry));
+            }
+#endif
+
+#if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
+            TaskAwaiter<DWORD>__YYAPI TaskRunner::AsyncWaitForObject(HANDLE _hHandle, TimeSpan _iWaitTimeOut)
+            {
+                struct AsyncTaskEntry
+                    : public Wait
+                    , public TaskAwaiter<DWORD>::RefData
+                {
+                    uint32_t __YYAPI AddRef() noexcept override
+                    {
+                        return Wait::AddRef();
+                    }
+
+                    uint32_t __YYAPI Release() noexcept override
+                    {
+                        return Wait::Release();
+                    }
+
+                    HRESULT __YYAPI RunTask() override
+                    {
+                        if (IsCanceled())
+                            return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+
+                        HRESULT _hr = S_OK;
+                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
+                        if (_hHandle)
+                        {
+                            try
+                            {
+                                std::coroutine_handle<>::from_address(_hHandle).resume();
+                            }
+                            catch (const YY::Base::OperationCanceledException& _Exception)
+                            {
+                                _hr = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                            }
+                        }
+
+                        Wakeup(_hr);
+                        return _hr;
+                    }
+
+                    DWORD __YYAPI Resume() noexcept override
+                    {
+                        return uWaitResult;
+                    }
+                };
+
+                auto _pAsyncTaskEntry = RefPtr<AsyncTaskEntry>::Create();
+                if (!_pAsyncTaskEntry)
+                    throw Exception();
+
+                _pAsyncTaskEntry->hHandle = _hHandle;
+
+                // >= UINT32_MAX 时认为是无限等待。
+                if (_iWaitTimeOut >= TimeSpan::FromMilliseconds(UINT32_MAX))
+                {
+                    _pAsyncTaskEntry->uTimeOut = TickCount::GetMax();
+                }
+                else
+                {
+                    _pAsyncTaskEntry->uTimeOut = TickCount::GetNow() + _iWaitTimeOut;
+                }
+
+                HRESULT _hr = S_OK;
+                do
+                {
+                    auto _pTaskRunner = TaskRunner::GetCurrent();
+                    if (!_pTaskRunner)
+                    {
+                        _hr = E_UNEXPECTED;
+                        break;
+                    }
+                    
+                    _hr = _pTaskRunner->SetWaitInternal(_pAsyncTaskEntry);
+
+                } while (false);
+
+                if (_hr != S_OK)
+                {
+                    _pAsyncTaskEntry->hCoroutineHandle = (intptr_t)-1;
+                }
+
+                return TaskAwaiter<DWORD>(std::move(_pAsyncTaskEntry));
+            }
+#endif
+
             HRESULT __YYAPI TaskRunner::PostDelayTask(TimeSpan _uAfter, std::function<void(void)>&& _pfnTaskCallback)
             {
                 auto _uExpire = TickCount::GetNow() + _uAfter;
