@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <utility>
 #include <YY/Base/Threading/Async.h>
+#include <YY/Base/Threading/CancellationToken.h>
 #include <YY/Base/Memory/WeakPtr.h>
 #include <YY/Base/Memory/RefPtr.h>
 #include <YY/Base/Functional/FunctionTraits.h>
@@ -120,7 +121,7 @@ namespace YY
                     using ContinueCallbackType = typename std::decay<ContinueCallback>::type;
                     using TaskContinueAsyncOperationType = TaskContinueAsyncOperation<ResultType, ContinueResultType_, ContinueCallbackType>;
 
-                    auto _pTaskContinueAsyncOperation = YY::RefPtr<TaskContinueAsyncOperationType>::Create(std::forward<ContinueCallback>(pfnTaskCallback));
+                    auto _pTaskContinueAsyncOperation = YY::RefPtr<TaskContinueAsyncOperationType>::Create(std::forward<ContinueCallback>(pfnTaskCallback), pAsyncOperation->GetCancellationToken());
                     _pTaskContinueAsyncOperation->pResumeTaskRunnerWeak = _pResumeTaskRunner;
                     _pTaskContinueAsyncOperation.Get()->AddRef();
                     if (!pAsyncOperation->AddCompletedHandler(_pTaskContinueAsyncOperation))
@@ -149,7 +150,7 @@ namespace YY
                         "ThenError callback must return ResultType or Task<ResultType>.");
 
                     using TaskErrorAsyncOperationType = TaskErrorAsyncOperation<ResultType, ResultType, ErrorCallbackType, ErrorCallbackResultType_>;
-                    auto _pTaskErrorAsyncOperation = YY::RefPtr<TaskErrorAsyncOperationType>::Create(std::forward<ErrorCallback>(pfnTaskCallback));
+                    auto _pTaskErrorAsyncOperation = YY::RefPtr<TaskErrorAsyncOperationType>::Create(std::forward<ErrorCallback>(pfnTaskCallback), pAsyncOperation->GetCancellationToken());
                     _pTaskErrorAsyncOperation->pResumeTaskRunnerWeak = _pResumeTaskRunner;
                     _pTaskErrorAsyncOperation.Get()->AddRef();
                     if (!pAsyncOperation->AddCompletedHandler(_pTaskErrorAsyncOperation))
@@ -378,8 +379,9 @@ namespace YY
                 WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
                 CallbackType pfnTaskCallback;
 
-                TaskAsyncOperation(CallbackType&& _pfnTaskCallback)
-                    : pfnTaskCallback(std::move(_pfnTaskCallback))
+                TaskAsyncOperation(CallbackType&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperationImpl<ResultType_>(std::move(_pCancellationToken))
+                    , pfnTaskCallback(std::move(_pfnTaskCallback))
                 {
                 }
 
@@ -388,7 +390,14 @@ namespace YY
                 {
                     try
                     {
-                        if (!this->Resolve(pfnTaskCallback(std::forward<_Parameters>(_oParameters)...)))
+                        if (this->IsCanceled())
+                        {
+                            this->Cancel();
+                            return false;
+                        }
+
+                        auto _oResult = pfnTaskCallback(std::forward<_Parameters>(_oParameters)...);
+                        if (!this->Resolve(std::move(_oResult)))
                         {
                             this->SetErrorCode(E_FAIL);
                             return false;
@@ -416,10 +425,12 @@ namespace YY
                 using CallbackType = CallbackType_;
 
                 WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
+                YY::RefPtr<CancellationToken> pCancellationToken;
                 CallbackType pfnTaskCallback;
 
-                TaskAsyncOperation(CallbackType&& _pfnTaskCallback)
-                    : pfnTaskCallback(std::move(_pfnTaskCallback))
+                TaskAsyncOperation(CallbackType&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperationImpl<void>(std::move(_pCancellationToken))
+                    , pfnTaskCallback(std::move(_pfnTaskCallback))
                 {
                 }
 
@@ -428,6 +439,12 @@ namespace YY
                 {
                     try
                     {
+                        if (this->IsCanceled())
+                        {
+                            this->Cancel();
+                            return false;
+                        }
+
                         pfnTaskCallback(std::forward<_Parameters>(_oParameters)...);
                         if (!this->Resolve())
                         {
@@ -459,8 +476,8 @@ namespace YY
                 using ResultType = ResultType_;
                 using CallbackType = CallbackType_;
 
-                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback)
-                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback), std::move(_pCancellationToken))
                 {
                 }
 
@@ -504,8 +521,8 @@ namespace YY
                 using ResultType = ResultType_;
                 using CallbackType = CallbackType_;
 
-                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback)
-                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback), std::move(_pCancellationToken))
                 {
                 }
 
@@ -550,8 +567,8 @@ namespace YY
 
                 static_assert(std::is_same<SourceResultType, ResultType>::value, "ThenError requires source/result type consistency.");
 
-                TaskErrorAsyncOperation(CallbackType_&& _pfnTaskCallback)
-                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                TaskErrorAsyncOperation(CallbackType_&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback), std::move(_pCancellationToken))
                 {
                 }
 
@@ -626,8 +643,9 @@ namespace YY
                 CallbackType pfnTaskCallback;
                 BridgeCompletedHandler oBridgeCompletedHandler;
 
-                TaskErrorAsyncOperation(CallbackType&& _pfnTaskCallback)
-                    : pfnTaskCallback(std::move(_pfnTaskCallback))
+                TaskErrorAsyncOperation(CallbackType&& _pfnTaskCallback, YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperationImpl<ResultType_>(std::move(_pCancellationToken))
+                    , pfnTaskCallback(std::move(_pfnTaskCallback))
                 {
                 }
 
@@ -663,7 +681,19 @@ namespace YY
                 {
                     try
                     {
+                        if (this->IsCanceled())
+                        {
+                            this->Cancel();
+                            return false;
+                        }
+
                         auto _oTask = pfnTaskCallback(_eptr);
+                        if (this->IsCanceled())
+                        {
+                            this->Cancel();
+                            return false;
+                        }
+
                         auto _pAsyncOperation = _oTask.GetAsyncOperation();
                         if (!_pAsyncOperation)
                         {
@@ -714,8 +744,13 @@ namespace YY
                     return {};
                 }
 
-                void return_value(ReturnType&& _oValue) noexcept
+                void return_value(ReturnType&& _oValue)
                 {
+                    if (pAsyncOperation->IsCanceled())
+                    {
+                        pAsyncOperation->ThrowIfWaitTaskFailed();
+                    }
+
                     pAsyncOperation->Resolve(std::move(_oValue));
                 }
 
@@ -757,10 +792,15 @@ namespace YY
                     return {};
                 }
 
-                void return_void() noexcept
+                void return_void()
                 {
                     if (pAsyncOperation)
                     {
+                        if (pAsyncOperation->IsCanceled())
+                        {
+                            pAsyncOperation->ThrowIfWaitTaskFailed();
+                        }
+
                         pAsyncOperation->Resolve();
                     }
                 }
@@ -794,7 +834,7 @@ namespace YY
                 std::coroutine_handle<> hCoroutine;
 
             public:
-                TaskAwaiter(YY::RefPtr<AsyncOperation<ResultType_>> _pAsyncOperation, TaskRunner* _pResumeTaskRunner) noexcept
+                TaskAwaiter(YY::RefPtr<AsyncOperation<ResultType_>> _pAsyncOperation, YY::RefPtr<TaskRunner> _pResumeTaskRunner) noexcept
                     : pAsyncOperation(std::move(_pAsyncOperation))
                     , pResumeTaskRunnerWeak(_pResumeTaskRunner)
                 {
@@ -802,11 +842,21 @@ namespace YY
 
                 bool await_ready() const noexcept
                 {
+                    if (pAsyncOperation->IsCanceled())
+                    {
+                        return true;
+                    }
+
                     return pAsyncOperation->GetStatus() != AsyncStatus::Started;
                 }
 
                 bool await_suspend(std::coroutine_handle<> _hCoroutine) noexcept
                 {
+                    if (pAsyncOperation->IsCanceled())
+                    {
+                        return false;
+                    }
+
                     hCoroutine = _hCoroutine;
                     if (!pAsyncOperation->AddCompletedHandler(this))
                     {
@@ -824,12 +874,6 @@ namespace YY
                 {
                     UNREFERENCED_PARAMETER(_pAsyncInfo);
                     
-                    if (_eStatus == AsyncStatus::Canceled)
-                    {
-                        hCoroutine.destroy();
-                        return;
-                    }
-
                     if (pResumeTaskRunnerWeak == nullptr)
                     {
                         if (hCoroutine)

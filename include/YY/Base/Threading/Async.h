@@ -2,9 +2,12 @@
 #include <YY/Base/Memory/RefPtr.h>
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Containers/DoublyLinkedList.h>
+#include <YY/Base/Functional/Delegate.h>
 #include <YY/Base/Sync/SRWLock.h>
 #include <YY/Base/Sync/AutoLock.h>
 #include <YY/Base/Containers/Optional.h>
+#include <YY/Base/Threading/CancellationToken.h>
+
 #include <exception>
 
 #pragma pack(push, __YY_PACKING)
@@ -27,116 +30,19 @@ namespace YY
                 Error,
             };
 
-            template<typename DelegateHandle>
-            class Delegate
-            {
-            protected:
-                YY::DoublyLinkedList<DelegateHandle> oDelegateHandleList;
-
-            public:
-                constexpr Delegate() = default;
-
-                constexpr Delegate(Delegate&& _oOther) noexcept
-                    : oDelegateHandleList(_oOther.oDelegateHandleList.Flush())
-                {
-                }
-
-                Delegate(const Delegate&) = delete;
-                Delegate& operator=(const Delegate&) = delete;
-
-                bool __YYAPI AddHandler(DelegateHandle* _pHandle)
-                {
-                    if (!_pHandle)
-                    {
-                        return false;
-                    }
-
-                    if(_pHandle->pPrior != nullptr || _pHandle->pNext != nullptr)
-                    {
-                        // 已经在链表中！！！
-                        return false;
-                    }
-
-                    oDelegateHandleList.PushBack(_pHandle);
-                    return true;
-                }
-
-                bool __YYAPI RemoveHandler(DelegateHandle* _pHandle)
-                {
-                    if (!_pHandle)
-                        return false;
-
-                    if (_pHandle->pPrior == nullptr)
-                    {
-                        // 头节点
-                        if (oDelegateHandleList.GetFirst() == _pHandle)
-                        {
-                            oDelegateHandleList.Remove(_pHandle);
-                            return true;
-                        }
-                    }
-                    else if (_pHandle->pNext == nullptr)
-                    {
-                        // 尾节点
-                        if (oDelegateHandleList.GetLast() == _pHandle)
-                        {
-                            oDelegateHandleList.Remove(_pHandle);
-                            return true;
-                        }
-                    }
-                    else
-                    {
-                        // 中间节点，检查是否在链表中
-                        for (auto _pEntry = oDelegateHandleList.GetFirst(); _pEntry != nullptr; _pEntry = _pEntry->pNext)
-                        {
-                            if (_pEntry == _pHandle)
-                            {
-                                oDelegateHandleList.Remove(_pHandle);
-                                return true;
-                            }
-                        }
-                    }
-
-                    return false;
-                }
-
-                Delegate& __YYAPI operator+=(Delegate&& _oOther)
-                {
-                    oDelegateHandleList.PushBack(_oOther.oDelegateHandleList.Flush());
-                    return *this;
-                }
-
-                Delegate& __YYAPI operator+=(DelegateHandle* _pHandle)
-                {
-                    AddHandler(_pHandle);
-                    return *this;
-                }
-
-                Delegate& __YYAPI operator-=(DelegateHandle* _pHandle)
-                {
-                    RemoveHandler(_pHandle);
-                    return *this;
-                }
-
-                template<typename... Args>
-                void __YYAPI InvokeCompletedHandlers(Args&&... _args)
-                {
-                    while (auto _pEntry = oDelegateHandleList.PopFront())
-                    {
-                        _pEntry->OnCompleted(std::forward<Args>(_args)...);
-                    }
-                }
-            };
-
             class AsyncInfo : public YY::RefValue
             {
             protected:
                 volatile HRESULT hr = E_PENDING;
                 volatile AsyncStatus eStatus = AsyncStatus::Started;
                 std::exception_ptr eptr;
+                YY::RefPtr<CancellationToken> pCancellationToken;
 
             public:
-                AsyncInfo() = default;
+                AsyncInfo(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : pCancellationToken(std::move(_pCancellationToken))
+                {
+                }
 
                 AsyncInfo(const AsyncInfo&) = delete;
                 AsyncInfo& operator=(const AsyncInfo&) = delete;
@@ -157,19 +63,21 @@ namespace YY
 
                 static std::exception_ptr __YYAPI CreateExceptionPtr(_In_opt_ AsyncInfo* _pAsyncInfo, AsyncStatus _eStatus)
                 {
-                    if (_eStatus == AsyncStatus::Error && _pAsyncInfo)
+                    if (_eStatus == AsyncStatus::Completed)
                     {
-                        auto _eptr = _pAsyncInfo->GetExceptionPtr();
-                        if (_eptr)
-                        {
-                            return _eptr;
-                        }
+                        return nullptr;
                     }
 
                     try
                     {
                         if (_pAsyncInfo)
                         {
+                            auto _eptr = _pAsyncInfo->GetExceptionPtr();
+                            if (_eptr)
+                            {
+                                return _eptr;
+                            }
+
                             _pAsyncInfo->ThrowIfWaitTaskFailed();
                         }
                         else
@@ -178,16 +86,14 @@ namespace YY
                             {
                                 throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
                             }
-
-                            throw YY::Exception(E_FAIL);
                         }
+
+                        throw YY::Exception(E_FAIL);
                     }
                     catch (...)
                     {
                         return std::current_exception();
                     }
-
-                    return nullptr;
                 }
 
                 AsyncStatus __YYAPI GetStatus() const noexcept
@@ -210,9 +116,19 @@ namespace YY
                     return true;
                 }
 
-                bool IsCanceled()
+                bool __YYAPI IsCanceled() const
                 {
-                    return GetStatus() == AsyncStatus::Canceled;
+                    if (GetStatus() == AsyncStatus::Completed)
+                    {
+                        return false;
+                    }
+
+                    return (GetStatus() == AsyncStatus::Canceled) || (pCancellationToken && pCancellationToken->IsCancellationRequested());
+                }
+
+                YY::RefPtr<CancellationToken> __YYAPI GetCancellationToken() const
+                {
+                    return pCancellationToken;
                 }
 
                 /// <summary>
@@ -222,6 +138,9 @@ namespace YY
                 /// <returns>如果在指定超时时间内等待成功（任务完成等）则返回 true；如果超时则返回 false。</returns>
                 bool __YYAPI WaitTask(YY::TimeSpan _oTimeout = YY::TimeSpan::GetMax())
                 {
+                    if (IsCanceled())
+                        return false;
+
                     DWORD _uMilliseconds;
                     auto _iTimeoutMilliseconds = _oTimeout.GetTotalMilliseconds();
                     if (_iTimeoutMilliseconds <= 0)
@@ -243,6 +162,11 @@ namespace YY
 
                 void __YYAPI ThrowIfWaitTaskFailed()
                 {
+                    if (IsCanceled())
+                    {
+                        throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
+                    }
+
                     if (!WaitTask())
                     {
                         throw YY::Exception(_S("等待异步任务WaitTask失败。"), E_FAIL);
@@ -344,6 +268,11 @@ namespace YY
                 Delegate oCompletedDelegate;
 
             public:
+                AsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncInfo(std::move(_pCancellationToken))
+                {
+                }
+
                 /// <summary>
                 /// 如果操作成功，则获取异步操作的结果。
                 /// </summary>
@@ -387,7 +316,11 @@ namespace YY
                         _oCompletedDelegate += std::move(oCompletedDelegate);
                     }
 
-                    _oCompletedDelegate.InvokeCompletedHandlers(this, GetStatus());
+                    _oCompletedDelegate.Invoke(
+                        [this](AsyncOperationCompletedHandler* _pHandler)
+                        {
+                            _pHandler->OnCompleted(this, GetStatus());
+                        });
                 }
             };
 
@@ -404,6 +337,11 @@ namespace YY
                 Delegate oCompletedDelegate;
 
             public:
+                AsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncInfo(std::move(_pCancellationToken))
+                {
+                }
+
                 /// <summary>
                 /// 如果操作成功，则获取异步操作的结果。
                 /// </summary>
@@ -447,7 +385,11 @@ namespace YY
                         _oCompletedDelegate += std::move(oCompletedDelegate);
                     }
 
-                    _oCompletedDelegate.InvokeCompletedHandlers(this, GetStatus());
+                    _oCompletedDelegate.Invoke(
+                        [this](AsyncOperationCompletedHandler* _pHandler)
+                        {
+                            _pHandler->OnCompleted(this, GetStatus());
+                        });
                 }
             };
 
@@ -467,6 +409,11 @@ namespace YY
                 };
 
             public:
+                AsyncOperationImpl(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperation<ResultType_>(std::move(_pCancellationToken))
+                {
+                }
+
                 ~AsyncOperationImpl()
                 {
                     if (AsyncOperation<ResultType>::GetStatus() == AsyncStatus::Completed)
@@ -488,6 +435,12 @@ namespace YY
 
                 bool __YYAPI Resolve(const ResultType& _oResult)
                 {
+                    if (AsyncOperation<ResultType>::IsCanceled())
+                    {
+                        AsyncOperation<ResultType>::Cancel();
+                        return false;
+                    }
+
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
                     {
                         return false;
@@ -501,6 +454,12 @@ namespace YY
 
                 bool __YYAPI Resolve(ResultType&& _oResult)
                 {
+                    if (AsyncOperation<ResultType>::IsCanceled())
+                    {
+                        AsyncOperation<ResultType>::Cancel();
+                        return false;
+                    }
+
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
                     {
                         return false;
@@ -533,6 +492,11 @@ namespace YY
             private:
 
             public:
+                AsyncOperationImpl(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperation(std::move(_pCancellationToken))
+                {
+                }
+
                 void __YYAPI GetResult() override
                 {
                     AsyncOperation<ResultType>::ThrowIfWaitTaskFailed();
@@ -541,12 +505,24 @@ namespace YY
 
                 bool __YYAPI Resolve(_In_ AsyncOperation<void>* _pAsyncOperation)
                 {
+                    if (AsyncOperation<ResultType>::IsCanceled() || _pAsyncOperation->IsCanceled())
+                    {
+                        AsyncOperation<ResultType>::Cancel();
+                        return false;
+                    }
+
                     _pAsyncOperation->GetResult();
                     return Resolve();
                 }
 
                 bool __YYAPI Resolve(void)
                 {
+                    if (AsyncOperation<ResultType>::IsCanceled())
+                    {
+                        AsyncOperation<ResultType>::Cancel();
+                        return false;
+                    }
+
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
                     {
                         return false;
@@ -577,13 +553,20 @@ namespace YY
 
                 LSTATUS lStatus = ERROR_IO_PENDING;
 
-                IoAsyncOperation()
-                    : OVERLAPPED{}
+                IoAsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                    : AsyncOperation<ResultType_>(std::move(_pCancellationToken))
+                    , OVERLAPPED{}
                 {
                 }
 
                 bool __YYAPI Resolve(LSTATUS _lStatus)
                 {
+                    if (AsyncOperation<ResultType>::IsCanceled())
+                    {
+                        AsyncOperation<ResultType>::Cancel();
+                        return false;
+                    }
+
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
                     {
                         return false;

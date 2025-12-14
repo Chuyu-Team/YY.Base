@@ -6,9 +6,34 @@ namespace YY {
 namespace Base {
 namespace IO {
 
-class FileIoAsyncOperation : public IoAsyncOperation<uint32_t>
+class FileIoAsyncOperation
+    : public IoAsyncOperation<uint32_t>
+    , public CancellationTokenCancelHandle
 {
 public:
+    HANDLE hFile = INVALID_HANDLE_VALUE;
+
+    FileIoAsyncOperation(_In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr) noexcept
+        : IoAsyncOperation<uint32_t>(std::move(_pCancellationToken))
+    {
+    }
+
+    ~FileIoAsyncOperation() noexcept
+    {
+        if (auto _pCancellationToken = GetCancellationToken())
+        {
+            _pCancellationToken->Unregister(this);
+        }
+    }
+
+    void __YYAPI OnCanceled() override
+    {
+        if (hFile != INVALID_HANDLE_VALUE)
+        {
+            CancelIoEx(hFile, this);
+        }
+    }
+
     uint32_t& __YYAPI GetResult() override
     {
         ThrowIfWaitTaskFailed();
@@ -20,13 +45,25 @@ public:
 
         return (uint32_t&)InternalHigh;
     }
+
+    bool __YYAPI Cancel() override
+    {
+        OnCanceled();
+        return IoAsyncOperation<uint32_t>::Cancel();
+    }
 };
 
-Task<uint32_t>__YYAPI AsyncFile::ReadAsync(uint64_t _uOffset, void* _pBuffer, uint32_t _cbBufferToRead) noexcept
+Task<uint32_t>__YYAPI AsyncFile::ReadAsync(uint64_t _uOffset, void* _pBuffer, uint32_t _cbBufferToRead, YY::RefPtr<CancellationToken> _pCancellationToken) noexcept
 {
-    auto _pFileIoAsyncOperation = RefPtr<FileIoAsyncOperation>::Create();
+    auto _pFileIoAsyncOperation = RefPtr<FileIoAsyncOperation>::Create(_pCancellationToken);
     _pFileIoAsyncOperation->Offset = (uint32_t)_uOffset;
     _pFileIoAsyncOperation->OffsetHigh = (uint32_t)(_uOffset >> 32);
+
+    if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+    {
+        _pFileIoAsyncOperation->Cancel();
+        return Task<uint32_t>(std::move(_pFileIoAsyncOperation));
+    }
 
     if (ReadFile(hFile, _pBuffer, _cbBufferToRead, nullptr, _pFileIoAsyncOperation.Clone()))
     {
@@ -47,6 +84,16 @@ Task<uint32_t>__YYAPI AsyncFile::ReadAsync(uint64_t _uOffset, void* _pBuffer, ui
         const auto _lStatus = GetLastError();
         if (_lStatus == ERROR_IO_PENDING)
         {
+            _pFileIoAsyncOperation->hFile = hFile;
+            if (_pFileIoAsyncOperation->IsCanceled())
+            {
+                _pFileIoAsyncOperation->Cancel();
+            }
+            else if (_pCancellationToken)
+            {
+                _pCancellationToken->Register(_pFileIoAsyncOperation);
+            }
+
             // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
             TaskRunner::StartIo();
         }
@@ -61,11 +108,17 @@ Task<uint32_t>__YYAPI AsyncFile::ReadAsync(uint64_t _uOffset, void* _pBuffer, ui
     return Task<uint32_t>(std::move(_pFileIoAsyncOperation));
 }
 
-Task<uint32_t>__YYAPI AsyncFile::WriteAsync(uint64_t _uOffset, const void* _pBuffer, uint32_t _cbBufferToWrite) noexcept
+Task<uint32_t>__YYAPI AsyncFile::WriteAsync(uint64_t _uOffset, const void* _pBuffer, uint32_t _cbBufferToWrite, YY::RefPtr<CancellationToken> _pCancellationToken) noexcept
 {
-    auto _pFileIoAsyncOperation = RefPtr<FileIoAsyncOperation>::Create();
+    auto _pFileIoAsyncOperation = RefPtr<FileIoAsyncOperation>::Create(_pCancellationToken);
     _pFileIoAsyncOperation->Offset = (uint32_t)_uOffset;
     _pFileIoAsyncOperation->OffsetHigh = (uint32_t)(_uOffset >> 32);
+
+    if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+    {
+        _pFileIoAsyncOperation->Cancel();
+        return Task<uint32_t>(std::move(_pFileIoAsyncOperation));
+    }
 
     if (WriteFile(hFile, _pBuffer, _cbBufferToWrite, nullptr, _pFileIoAsyncOperation.Clone()))
     {
@@ -86,6 +139,16 @@ Task<uint32_t>__YYAPI AsyncFile::WriteAsync(uint64_t _uOffset, const void* _pBuf
         const auto _lStatus = GetLastError();
         if (_lStatus == ERROR_IO_PENDING)
         {
+            _pFileIoAsyncOperation->hFile = hFile;
+            if (_pFileIoAsyncOperation->IsCanceled())
+            {
+                _pFileIoAsyncOperation->Cancel();
+            }
+            else if (_pCancellationToken)
+            {
+                _pCancellationToken->Register(_pFileIoAsyncOperation);
+            }
+
             // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
             TaskRunner::StartIo();
         }
@@ -100,19 +163,56 @@ Task<uint32_t>__YYAPI AsyncFile::WriteAsync(uint64_t _uOffset, const void* _pBuf
     return Task<uint32_t>(std::move(_pFileIoAsyncOperation));
 }
 
-Task<LSTATUS>__YYAPI AsyncPipe::ConnectAsync()
+Task<LSTATUS>__YYAPI AsyncPipe::ConnectAsync(YY::RefPtr<CancellationToken> _pCancellationToken)
 {
-    class ConnectAsyncOperation : public IoAsyncOperation<LSTATUS>
+    class ConnectAsyncOperation
+        : public IoAsyncOperation<LSTATUS>
+        , public CancellationTokenCancelHandle
     {
     public:
+        HANDLE hFile = INVALID_HANDLE_VALUE;
+
+        ConnectAsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr) noexcept
+            : IoAsyncOperation<LSTATUS>(std::move(_pCancellationToken))
+        {
+        }
+
+        ~ConnectAsyncOperation() noexcept
+        {
+            if (auto _pCancellationToken = GetCancellationToken())
+            {
+                _pCancellationToken->Unregister(this);
+            }
+        }
+
+        void __YYAPI OnCanceled() override
+        {
+            if (hFile != INVALID_HANDLE_VALUE)
+            {
+                CancelIoEx(hFile, this);
+            }
+        }
+
         LSTATUS& __YYAPI GetResult() override
         {
             ThrowIfWaitTaskFailed();
             return lStatus;
         }
+
+        bool __YYAPI Cancel() override
+        {
+            OnCanceled();
+            return IoAsyncOperation<LSTATUS>::Cancel();
+        }
     };
 
-    auto _pConnectAsyncOperation = YY::RefPtr<ConnectAsyncOperation>::Create();
+    auto _pConnectAsyncOperation = YY::RefPtr<ConnectAsyncOperation>::Create(_pCancellationToken);
+
+    if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+    {
+        _pConnectAsyncOperation->Cancel();
+        return Task<LSTATUS>(std::move(_pConnectAsyncOperation));
+    }
 
     auto _bSuccess = ConnectNamedPipe(hFile, _pConnectAsyncOperation.Clone());
     if (_bSuccess)
@@ -133,6 +233,16 @@ Task<LSTATUS>__YYAPI AsyncPipe::ConnectAsync()
         const auto _lStatus = GetLastError();
         if (_lStatus == ERROR_IO_PENDING)
         {
+            _pConnectAsyncOperation->hFile = hFile;
+            if (_pConnectAsyncOperation->IsCanceled())
+            {
+                _pConnectAsyncOperation->Cancel();
+            }
+            else if (_pCancellationToken)
+            {
+                _pCancellationToken->Register(_pConnectAsyncOperation);
+            }
+
             // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
             TaskRunner::StartIo();
         }

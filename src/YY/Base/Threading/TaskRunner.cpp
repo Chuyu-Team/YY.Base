@@ -180,15 +180,24 @@ namespace YY
                 return TaskRunnerDispatch::Get()->StartIo();
             }
 
-            Task<HRESULT> __YYAPI TaskRunner::SleepAsync(TimeSpan _uAfter)
+            Task<HRESULT> __YYAPI TaskRunner::SleepAsync(_In_ TimeSpan _uAfter, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken)
             {
                 class SleepAsyncOperation : public AsyncOperationImpl<HRESULT>
                 {
                 public:
-
+                    SleepAsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
+                        : AsyncOperationImpl<HRESULT>(std::move(_pCancellationToken))
+                    {
+                    }
                 };
 
-                auto _pSleepAsyncOperation = YY::RefPtr<SleepAsyncOperation>::Create();
+                auto _pSleepAsyncOperation = YY::RefPtr<SleepAsyncOperation>::Create(_pCancellationToken);
+
+                if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+                {
+                    _pSleepAsyncOperation->Cancel();
+                    return Task<HRESULT>(std::move(_pSleepAsyncOperation));
+                }
 
                 auto _pTaskRunner = TaskRunner::GetCurrent();
                 if (!_pTaskRunner)
