@@ -5,6 +5,7 @@
 #include <coroutine>
 
 #include <YY/Base/Containers/Optional.h>
+#include <YY/Base/Sync/Interlocked.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -76,6 +77,120 @@ namespace YY
             struct Coroutine
             {
                 using promise_type = Promise<_ReturnType, Coroutine>;
+            };
+
+            template<typename ResumeType_>
+            class TaskAwaiter
+            {
+            public:
+                using ResumeType = ResumeType_;
+
+                class RefData
+                {
+                public:
+                    // 协程句柄
+                    intptr_t hCoroutineHandle = 0;
+
+                    ~RefData()
+                    {
+                        if (hCoroutineHandle && hCoroutineHandle != (intptr_t)-1)
+                        {
+                            std::coroutine_handle<>::from_address((void*)hCoroutineHandle).destroy();
+                        }
+                    }
+
+                    virtual uint32_t __YYAPI AddRef() noexcept = 0;
+
+                    virtual uint32_t __YYAPI Release() noexcept = 0;
+
+                    virtual ResumeType_ __YYAPI Resume() noexcept = 0;
+                };
+
+            private:
+                RefPtr<RefData> pAwaiterData;
+
+            public:
+                TaskAwaiter(_In_ RefPtr<RefData> _pAwaiterData)
+                    : pAwaiterData(std::move(_pAwaiterData))
+                {
+                }
+
+                TaskAwaiter(TaskAwaiter&&) = default;
+
+                TaskAwaiter(const TaskAwaiter&) = delete;
+                TaskAwaiter& operator=(const TaskAwaiter&) = delete;
+
+                bool await_ready() noexcept
+                {
+                    return pAwaiterData->hCoroutineHandle == /*hReadyHandle*/ (intptr_t)-1;
+                }
+
+                bool await_suspend(std::coroutine_handle<> _hHandle) noexcept
+                {
+                    return YY::Base::Sync::CompareExchange(&pAwaiterData->hCoroutineHandle, (intptr_t)_hHandle.address(), 0) == 0;
+                }
+
+                ResumeType await_resume() noexcept
+                {
+                    return pAwaiterData->Resume();
+                }
+            };
+
+            template<>
+            class TaskAwaiter<void>
+            {
+            public:
+                using ResumeType = void;
+
+                class RefData
+                {
+                public:
+                    // 协程句柄
+                    intptr_t hCoroutineHandle = 0;
+
+                    ~RefData()
+                    {
+                        if (hCoroutineHandle && hCoroutineHandle != (intptr_t)-1)
+                        {
+                            std::coroutine_handle<>::from_address((void*)hCoroutineHandle).destroy();
+                        }
+                    }
+
+                    virtual uint32_t __YYAPI AddRef() noexcept = 0;
+
+                    virtual uint32_t __YYAPI Release() noexcept = 0;
+                };
+
+            private:
+                RefPtr<RefData> pAwaiterData;
+
+            public:
+                TaskAwaiter(_In_ RefPtr<RefData> _pAwaiterData)
+                    : pAwaiterData(std::move(_pAwaiterData))
+                {
+                }
+
+                TaskAwaiter(TaskAwaiter&&) = default;
+
+                TaskAwaiter(const TaskAwaiter&) = delete;
+                TaskAwaiter& operator=(const TaskAwaiter&) = delete;
+
+                TaskAwaiter& operator=(TaskAwaiter&&) = default;
+
+                bool await_ready() noexcept
+                {
+                    return pAwaiterData->hCoroutineHandle == /*hReadyHandle*/ (intptr_t)-1;
+                }
+
+                bool await_suspend(std::coroutine_handle<> _hHandle) noexcept
+                {
+                    return YY::Base::Sync::CompareExchange(&pAwaiterData->hCoroutineHandle, (intptr_t)_hHandle.address(), 0) == 0;
+                }
+
+                void await_resume() noexcept
+                {
+                    // 因为没有返回值，所以空函数占坑
+                }
             };
         }
     }
