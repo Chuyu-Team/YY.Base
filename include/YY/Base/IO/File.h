@@ -6,6 +6,7 @@
 #include <YY/Base/YY.h>
 #include <YY/Base/Strings/StringView.h>
 #include <YY/Base/Threading/TaskRunner.h>
+#include <YY/Base/Threading/CancellationToken.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -148,12 +149,14 @@ namespace YY
                 /// <param name="_uOffset">读取文件的偏移。</param>
                 /// <param name="_pBuffer">输入缓冲区。请确保读取期间，_pBuffer处于有效状态。</param>
                 /// <param name="_cbBufferToRead">要读取的最大字节数。</param>
+                /// <param name="_pCancellationToken">取消Token。</param>
                 /// <returns>返回实际读取的字节数。
                 /// 如果实际读取字节数为 0，那么请额外检查 GetLastError()。</returns>
                 Task<uint32_t> __YYAPI ReadAsync(
                     _In_ uint64_t _uOffset,
                     _Out_writes_bytes_(_cbBufferToRead) void* _pBuffer,
-                    _In_ uint32_t _cbBufferToRead) noexcept;
+                    _In_ uint32_t _cbBufferToRead,
+                    _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr) noexcept;
 
                 /// <summary>
                 /// 异步写入文件。
@@ -161,13 +164,15 @@ namespace YY
                 /// <param name="_uOffset">写入文件的偏移。</param>
                 /// <param name="_pBuffer">需要写入的数据缓冲区。</param>
                 /// <param name="_cbBufferToWrite">要写入的字节数</param>
+                /// <param name="_pCancellationToken">取消Token。</param>
                 /// <returns>返回实际写入的字节数。
                 /// 如果实际写入字节数为 0，那么请额外检查 GetLastError()。
                 /// </returns>
                 Task<uint32_t> __YYAPI WriteAsync(
                     _In_ uint64_t _uOffset,
                     _In_reads_bytes_(_cbBufferToWrite) const void* _pBuffer,
-                    _In_ uint32_t _cbBufferToWrite) noexcept;
+                    _In_ uint32_t _cbBufferToWrite,
+                    _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr) noexcept;
 
                 /// <summary>
                 /// 异步读取文件。
@@ -328,8 +333,9 @@ namespace YY
                 /// <summary>
                 /// 异步链接管道。
                 /// </summary>
+                /// <param name="_pCancellationToken">取消Token。</param>
                 /// <returns>一个任务对象,表示异步操作,完成时返回操作的状态码。</returns>
-                Task<LSTATUS> __YYAPI ConnectAsync();
+                Task<LSTATUS> __YYAPI ConnectAsync(_In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr);
 
                 /// <summary>
                 /// 异步链接管道。

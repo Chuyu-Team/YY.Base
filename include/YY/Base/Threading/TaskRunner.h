@@ -12,6 +12,7 @@
 #include <YY/Base/Time/TickCount.h>
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Strings/String.h>
+#include <YY/Base/Threading/CancellationToken.h>
 #include <YY/Base/Threading/Task.h>
 
 #pragma pack(push, __YY_PACKING)
@@ -242,20 +243,28 @@ namespace YY
                 /// <typeparam name="AsyncCallbackType_">异步回调类型。</typeparam>
                 /// <typeparam name="ResultType_">任务结果类型。</typeparam>
                 /// <param name="_pfnAsyncCallback">异步回调函数。</param>
+                /// <param name="_pCancellationToken">取消Token。</param> 
                 /// <returns>返回一个表示异步操作的任务对象。</returns>
                 template<typename AsyncCallbackType_, typename ResultType_ = decltype(std::declval<AsyncCallbackType_>()())>
-                Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback)
+                Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
-                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback));
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
                     if (!_pTaskAsyncOperation)
                         throw Exception();
 
-                    PostTask(
-                        [_pTaskAsyncOperation]()
-                        {
-                            _pTaskAsyncOperation->Resume();
-                        });
+                    if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+                    {
+                        _pTaskAsyncOperation->Cancel();
+                    }
+                    else
+                    {
+                        PostTask(
+                            [_pTaskAsyncOperation]()
+                            {
+                                _pTaskAsyncOperation->Resume();
+                            });
+                    }
 
                     return Task<ResultType_>(std::move(_pTaskAsyncOperation));
                 }
@@ -265,21 +274,29 @@ namespace YY
                 /// </summary>
                 /// <param name="_uAfter">需要延迟执行的时间</param> 
                 /// <param name="_pfnAsyncCallback">需要异步执行的回调函数。</param>
+                /// <param name="_pCancellationToken">取消Token。</param> 
                 /// <returns>返回一个表示异步操作的任务对象。</returns>
                 template<typename AsyncCallbackType_, typename ResultType_ = decltype(std::declval<AsyncCallbackType_>()())>
-                Task<ResultType_> __YYAPI CreateDelayTask(_In_ TimeSpan _uAfter, AsyncCallbackType_&& _pfnAsyncCallback)
+                Task<ResultType_> __YYAPI CreateDelayTask(_In_ TimeSpan _uAfter, AsyncCallbackType_&& _pfnAsyncCallback, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
-                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback));
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
                     if (!_pTaskAsyncOperation)
                         throw Exception();
 
-                    PostDelayTask(
-                        _uAfter,
-                        [_pTaskAsyncOperation]()
-                        {
-                            _pTaskAsyncOperation->Resume();
-                        });
+                    if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
+                    {
+                        _pTaskAsyncOperation->Cancel();
+                    }
+                    else
+                    {
+                        PostDelayTask(
+                            _uAfter,
+                            [_pTaskAsyncOperation]()
+                            {
+                                _pTaskAsyncOperation->Resume();
+                            });
+                    }
 
                     return Task<ResultType_>(std::move(_pTaskAsyncOperation));
                 }
@@ -288,27 +305,30 @@ namespace YY
                 /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
                 /// </summary>
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <param name="_pCancellationToken">取消Token。</param> 
                 /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static Task<HRESULT> __YYAPI SleepAsync(_In_ TimeSpan _uAfter);
+                static Task<HRESULT> __YYAPI SleepAsync(_In_ TimeSpan _uAfter, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr);
 
                 /// <summary>
                 /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
                 /// </summary>
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <param name="_pCancellationToken">取消Token。</param> 
                 /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static Task<HRESULT> __YYAPI Delay(_In_ TimeSpan _uAfter)
+                static Task<HRESULT> __YYAPI Delay(_In_ TimeSpan _uAfter, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
-                    return SleepAsync(_uAfter);
+                    return SleepAsync(_uAfter, _pCancellationToken);
                 }
 
                 /// <summary>
                 /// 返回一个用于超时的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
                 /// </summary>
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <param name="_pCancellationToken">取消Token。</param> 
                 /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static Task<HRESULT> __YYAPI Timeout(_In_ TimeSpan _uAfter)
+                static Task<HRESULT> __YYAPI Timeout(_In_ TimeSpan _uAfter, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
-                    return SleepAsync(_uAfter);
+                    return SleepAsync(_uAfter, _pCancellationToken);
                 }
 
 #if defined(_WIN32)
