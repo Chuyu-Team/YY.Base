@@ -93,6 +93,15 @@ namespace YY
                 {
                     return &p;
                 }
+                
+                /// <summary>
+                /// 检查观察者数据是否已过期。
+                /// </summary>
+                /// <returns>如果对象已过期，则返回 true；否则返回 false。</returns>
+                bool __YYAPI IsExpired() const noexcept
+                {
+                    return p == nullptr;
+                }
 
                 _Ret_maybenull_ __YYAPI operator _Type*() const noexcept
                 {

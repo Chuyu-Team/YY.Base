@@ -101,6 +101,15 @@ namespace YY
 
                     return false;
                 }
+
+                /// <summary>
+                /// 检查观察者数据是否已过期。
+                /// </summary>
+                /// <returns>如果对象已过期，则返回 true；否则返回 false。</returns>
+                bool __YYAPI IsExpired() const noexcept
+                {
+                    return uRef == 0;
+                }
             };
 
             template<typename _Type>
@@ -182,6 +191,15 @@ namespace YY
                 inline void Reset(_In_opt_ _Type* _pOther = nullptr) noexcept
                 {
                     Attach(_pOther);
+                }
+
+                /// <summary>
+                /// 检查观察者数据是否已过期。
+                /// </summary>
+                /// <returns>如果对象已过期，则返回 true；否则返回 false。</returns>
+                bool __YYAPI IsExpired() const noexcept
+                {
+                    return p == nullptr;
                 }
 
                 RefPtr& __YYAPI operator=(std::nullptr_t) noexcept
