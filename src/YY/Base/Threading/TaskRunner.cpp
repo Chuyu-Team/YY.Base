@@ -188,25 +188,13 @@ namespace YY
                         if (IsCanceled())
                             return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
-                        _hrValue = S_OK;
-                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
-                        if (_hHandle)
-                        {
-                            try
-                            {
-                                std::coroutine_handle<>::from_address(_hHandle).resume();
-                            }
-                            catch (const YY::Base::OperationCanceledException& _Exception)
-                            {
-                                _hrValue = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                            }
-                        }
+                        _hrValue = Resume();
 
                         Wakeup(_hrValue);
                         return _hrValue;
                     }
 
-                    HRESULT __YYAPI Resume() noexcept override
+                    HRESULT __YYAPI GetResult() noexcept override
                     {
                         return _hrValue;
                     }
@@ -233,8 +221,8 @@ namespace YY
 
                 if (_hr != S_OK)
                 {
-                    _pAsyncTaskEntry->hCoroutineHandle = (intptr_t)-1;
                     _pAsyncTaskEntry->_hrValue = _hr;
+                    _pAsyncTaskEntry->Resume();
                 }
 
                 return TaskAwaiter<HRESULT>(std::move(_pAsyncTaskEntry));
@@ -263,25 +251,12 @@ namespace YY
                         if (IsCanceled())
                             return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
-                        HRESULT _hr = S_OK;
-                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
-                        if (_hHandle)
-                        {
-                            try
-                            {
-                                std::coroutine_handle<>::from_address(_hHandle).resume();
-                            }
-                            catch (const YY::Base::OperationCanceledException& _Exception)
-                            {
-                                _hr = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                            }
-                        }
-
+                        HRESULT _hr = Resume();
                         Wakeup(_hr);
                         return _hr;
                     }
 
-                    DWORD __YYAPI Resume() noexcept override
+                    DWORD __YYAPI GetResult() noexcept override
                     {
                         return uWaitResult;
                     }
@@ -319,7 +294,7 @@ namespace YY
 
                 if (_hr != S_OK)
                 {
-                    _pAsyncTaskEntry->hCoroutineHandle = (intptr_t)-1;
+                    _pAsyncTaskEntry->Resume();
                 }
 
                 return TaskAwaiter<DWORD>(std::move(_pAsyncTaskEntry));
@@ -385,8 +360,8 @@ namespace YY
                         if (FAILED(_hr))
                             return _hr;
 
-                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
-                        if (!_hHandle)
+                        auto _oCoroutineInfo = oCoroutineInfo.Flush();
+                        if (_oCoroutineInfo.hCoroutineHandle == 0 || _oCoroutineInfo.hCoroutineHandle == (intptr_t)-1)
                             return S_OK;
 
                         // 如果 pResumeTaskRunner == nullptr，目标不属于任何一个 SequencedTaskRunner，这很可能任务不关下是否需要串行
@@ -394,16 +369,15 @@ namespace YY
                         auto _pResumeTaskRunner = pResumeTaskRunnerWeak.Get();
                         if (pResumeTaskRunnerWeak == nullptr || _pResumeTaskRunner == YY::Base::Threading::TaskRunner::GetCurrent())
                         {
-                            std::coroutine_handle<>::from_address(_hHandle).resume();
-                            return S_OK;
+                            return _oCoroutineInfo.Resume();
                         }
                         else if (_pResumeTaskRunner)
                         {
                             // TODO: 如果 _pResumeTaskRunner 没有执行 resume，则将发生内存泄漏。
                             _pResumeTaskRunner->PostTask(
-                                [_hHandle]()
+                                [_oCoroutineInfo]() mutable
                                 {
-                                    std::coroutine_handle<>::from_address(_hHandle).resume();
+                                    _oCoroutineInfo.Resume();
                                 });
 
                             return S_OK;
@@ -411,7 +385,7 @@ namespace YY
                         else
                         {
                             // 任务被取消
-                            std::coroutine_handle<>::from_address(_hHandle).destroy();
+                            _oCoroutineInfo.Destroy();
                             return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                         }
                     }

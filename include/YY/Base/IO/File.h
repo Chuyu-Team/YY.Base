@@ -62,7 +62,7 @@ namespace YY
                 private:
                     CoroutineReadWriteTask(bool)
                     {
-                        hCoroutineHandle = -1;
+                        oCoroutineInfo.hCoroutineHandle = -1;
                         lStatus = ERROR_OUTOFMEMORY;
                     }
 
@@ -71,13 +71,7 @@ namespace YY
 
                     HRESULT __YYAPI RunTask() override
                     {
-                        auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
-                        if (_hHandle)
-                        {
-                            std::coroutine_handle<>::from_address(_hHandle).resume();
-                        }
-
-                        return S_OK;
+                        return Resume();
                     }
 
                     uint32_t __YYAPI AddRef() noexcept override
@@ -90,7 +84,7 @@ namespace YY
                         return IoTaskEntry::Release();
                     }
 
-                    uint32_t __YYAPI Resume() noexcept override
+                    uint32_t __YYAPI GetResult() noexcept override
                     {
                         SetLastError(lStatus);
                         return uint32_t(InternalHigh);
@@ -263,7 +257,7 @@ namespace YY
                         if (_lStatus != ERROR_SUCCESS)
                         {
                             // 失败时，异步任务不会在触发了。也算是一种任务完成。
-                            _pAsyncTaskEntry->hCoroutineHandle = -1;
+                            _pAsyncTaskEntry->Resume();
                         }
                     }
                     else
@@ -297,7 +291,7 @@ namespace YY
                         if (_lStatus != ERROR_SUCCESS)
                         {
                             // 失败时，异步任务不会在触发了。也算是一种任务完成。
-                            _pAsyncTaskEntry->hCoroutineHandle = -1;
+                            _pAsyncTaskEntry->Resume();
                         }
                     }
                     else
@@ -513,7 +507,7 @@ namespace YY
                     private:
                         CoroutineConnectTask(bool)
                         {
-                            hCoroutineHandle = -1;
+                            oCoroutineInfo.hCoroutineHandle = -1;
                             lStatus = ERROR_OUTOFMEMORY;
                         }
 
@@ -522,13 +516,7 @@ namespace YY
 
                         HRESULT __YYAPI RunTask() override
                         {
-                            auto _hHandle = (void*)YY::Base::Sync::Exchange(&hCoroutineHandle, /*hReadyHandle*/ (intptr_t)-1);
-                            if (_hHandle)
-                            {
-                                std::coroutine_handle<>::from_address(_hHandle).resume();
-                            }
-
-                            return S_OK;
+                            return Resume();
                         }
 
                         uint32_t __YYAPI AddRef() noexcept override
@@ -541,7 +529,7 @@ namespace YY
                             return IoTaskEntry::Release();
                         }
 
-                        LSTATUS __YYAPI Resume() noexcept override
+                        LSTATUS __YYAPI GetResult() noexcept override
                         {
                             return lStatus;
                         }
@@ -559,7 +547,7 @@ namespace YY
                         auto _lStatus = AsyncConnectIntetnal(_pConnectTask);
                         if (_lStatus != ERROR_SUCCESS)
                         {
-                            _pConnectTask->hCoroutineHandle = -1;
+                            _pConnectTask->Resume();
                         }
                     }
                     else

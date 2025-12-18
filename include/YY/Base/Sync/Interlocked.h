@@ -408,6 +408,29 @@ namespace YY
                 return (Type1*)CompareExchange(reinterpret_cast<intptr_t*>(_ppDestination), reinterpret_cast<intptr_t>(static_cast<Type1*>(_pExchange)), reinterpret_cast<intptr_t>(static_cast<Type1*>(_pComparand)));
             }
 
+            /// <summary>
+            ///  直接交换2个指针的值
+            /// </summary>
+            /// <typeparam name="Type"></typeparam>
+            /// <param name="_pDestinationPoints"></param>
+            /// <param name="_pExchangePoints"></param>
+            /// <param name="_pComparandResult"></param>
+            /// <returns></returns>
+            inline bool __YYAPI CompareExchangeTwoPoints(_Inout_updates_(2) volatile intptr_t* _pDestinationPoints, _In_reads_(2) const intptr_t* _pExchangePoints, _Inout_updates_(2) intptr_t* _pComparandResult)
+            {
+#if defined(_X86_) || defined(_ARM_)
+                static_assert(sizeof(intptr_t) * 2 == sizeof(int64_t), "");
+                auto _iComparand = *reinterpret_cast<int64_t*>(_pComparandResult);
+
+                auto _iPreValue = CompareExchange(reinterpret_cast<volatile int64_t*>(_pDestinationPoints), *reinterpret_cast<const int64_t*>(_pExchangePoints), _iComparand);
+                *reinterpret_cast<int64_t*>(_pComparandResult) = _iPreValue;
+                return _iPreValue == _iComparand;
+#else
+                static_assert(sizeof(intptr_t) == sizeof(LONG64), "");
+                return InterlockedCompareExchange128(reinterpret_cast<volatile LONG64*>(_pDestinationPoints), reinterpret_cast<const LONG64*>(_pExchangePoints)[1], reinterpret_cast<const LONG64*>(_pExchangePoints)[0], reinterpret_cast<LONG64*>(_pComparandResult));
+#endif
+            }
+
             inline int32_t __YYAPI Exchange(volatile int32_t* _pDestination, int32_t _iExchange)
             {
 #ifdef _MSC_VER

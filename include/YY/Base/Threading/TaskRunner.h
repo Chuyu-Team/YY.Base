@@ -224,6 +224,26 @@ namespace YY
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
                 /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
                 static TaskAwaiter<HRESULT> __YYAPI AsyncSleep(_In_ TimeSpan _uAfter);
+
+                /// <summary>
+                /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
+                /// </summary>
+                /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static TaskAwaiter<HRESULT> __YYAPI Delay(_In_ TimeSpan _uAfter)
+                {
+                    return AsyncSleep(_uAfter);
+                }
+
+                /// <summary>
+                /// 返回一个用于超时的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
+                /// </summary>
+                /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static TaskAwaiter<HRESULT> __YYAPI Timeout(_In_ TimeSpan _uAfter)
+                {
+                    return AsyncSleep(_uAfter);
+                }
 #endif
 
 #if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
