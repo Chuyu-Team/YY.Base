@@ -64,6 +64,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Threading\Async.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\FunctionTraits.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\IO\Path.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Time\TimeZone.h" />

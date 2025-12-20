@@ -45,7 +45,7 @@ namespace YY
                 DoublyLinkedList(const DoublyLinkedList&) = delete;
                 DoublyLinkedList& operator=(const DoublyLinkedList&) = delete;
                 
-                DoublyLinkedList __YYAPI Flush() noexcept
+                constexpr DoublyLinkedList __YYAPI Flush() noexcept
                 {
                     DoublyLinkedList _oList;
                     _oList.pFirst = pFirst;
@@ -173,6 +173,20 @@ namespace YY
 
                 void __YYAPI Remove(_In_ EntryType* _pEntry) noexcept
                 {
+#ifdef _DEBUG
+                    // 调试模式下检查节点是否在链表中
+                    bool bFound = false;
+                    for (auto _pCur = pFirst; _pCur != nullptr; _pCur = _pCur->pNext)
+                    {
+                        if (_pCur == _pEntry)
+                        {
+                            bFound = true;
+                            break;
+                        }
+                    }
+                    assert(bFound && "The entry to be removed is not in the list.");
+#endif
+
                     auto _pPrior = _pEntry->pPrior;
                     _pEntry->pPrior = nullptr;
                     auto _pNext = _pEntry->pNext;
@@ -184,7 +198,11 @@ namespace YY
                     }
                     else
                     {
-                        assert(pFirst == _pEntry);
+                        if (pFirst != _pEntry)
+                        {
+                            assert(false && "_pEntry按预期应该是再头部。");
+                            return;
+                        }
                         pFirst = _pNext;
                     }
 
@@ -194,7 +212,11 @@ namespace YY
                     }
                     else
                     {
-                        assert(pLast == _pEntry);
+                        if (pLast != _pEntry)
+                        {
+                            assert(false && "_pEntry按预期应该是再尾部。");
+                            return;
+                        }
                         pLast = _pPrior;
                     }
                 }

@@ -22,46 +22,6 @@ namespace YY
                 Cancel();
             }
 
-            void __YYAPI TaskEntry::Wakeup(HRESULT _hrCode)
-            {
-                if (YY::CompareExchange(&hr, _hrCode, E_PENDING) == E_PENDING)
-                {
-                    WakeByAddressAll(&hr);
-                }
-            }
-
-            bool __YYAPI TaskEntry::WaitTask(YY::TimeSpan _oTimeout)
-            {
-                DWORD _uMilliseconds;
-                auto _iTimeoutMilliseconds = _oTimeout.GetTotalMilliseconds();
-                if (_iTimeoutMilliseconds <= 0)
-                {
-                    _uMilliseconds = 0;
-                }
-                else if (_iTimeoutMilliseconds > UINT32_MAX)
-                {
-                    _uMilliseconds = UINT32_MAX;
-                }
-                else
-                {
-                    _uMilliseconds = (DWORD)_iTimeoutMilliseconds;
-                }
-
-                HRESULT _hrTarget = E_PENDING;
-                return WaitOnAddress(&hr, &_hrTarget, sizeof(_hrTarget), _uMilliseconds);
-            }
-
-            bool __YYAPI TaskEntry::Cancel()
-            {
-                if (!YY::Sync::BitSet((int32_t*)&fStyle, 2))
-                {
-                    Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
-                    return true;
-                }
-
-                return false;
-            }
-
             HRESULT __YYAPI TaskEntry::RunTask()
             {
                 if (IsCanceled())
@@ -78,7 +38,7 @@ namespace YY
                     _hr = YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
 
-                Wakeup(_hr);
+                SetErrorCode(_hr);
                 return _hr;
             }
 

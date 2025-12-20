@@ -314,6 +314,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\Handle.h">
       <Filter>头文件\YY\Base\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Threading\Async.h">
+      <Filter>头文件\YY\Base\Threading</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\FunctionTraits.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
