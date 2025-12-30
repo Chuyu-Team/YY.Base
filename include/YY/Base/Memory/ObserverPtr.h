@@ -39,23 +39,11 @@ namespace YY
                 {
                     friend ObserverPtrFactory;
                 private:
-                    ObserverPtrFactory* pBase = nullptr;
                     volatile uint32_t uRef = 1;
-                    bool bDestroyed = true;
+                    bool bDestroyed = false;
 
                 public:
-                    constexpr ObserverData() noexcept = default;
-
-                    constexpr ObserverData(ObserverPtrFactory* _pBase) noexcept
-                        : pBase(_pBase)
-                        , bDestroyed(false)
-                    {
-                    }
-
-                    ObserverPtrFactory* __YYAPI GetBasePtr() const noexcept
-                    {
-                        return pBase;
-                    }
+                    constexpr ObserverData() = default;
 
                     uint32_t __YYAPI AddRef() noexcept
                     {
@@ -104,7 +92,7 @@ namespace YY
                 {
                     if (!pObserverData)
                     {
-                        pObserverData = RefPtr<ObserverData>::Create(this);
+                        pObserverData = RefPtr<ObserverData>::Create();
                     }
 
                     return pObserverData;
@@ -115,6 +103,7 @@ namespace YY
             class ObserverPtr
             {
             private:
+                _Type* pPtr = nullptr;
                 RefPtr<ObserverPtrFactory::ObserverData> pObserverData;
 
             public:
@@ -126,13 +115,16 @@ namespace YY
                 }
 
                 ObserverPtr(_In_ const ObserverPtr& _pOther) noexcept
-                    : pObserverData(_pOther.pObserverData)
+                    : pPtr(_pOther.pPtr)
+                    , pObserverData(_pOther.pObserverData)
                 {
                 }
 
-                ObserverPtr(_In_ ObserverPtr&& _pOther) noexcept
-                    : pObserverData(std::move(_pOther.pObserverData))
+                constexpr ObserverPtr(_In_ ObserverPtr&& _pOther) noexcept
+                    : pPtr(_pOther.pPtr)
+                    , pObserverData(std::move(_pOther.pObserverData))
                 {
+                    _pOther.pPtr = nullptr;
                 }
 
                 ~ObserverPtr()
@@ -147,7 +139,7 @@ namespace YY
                         return nullptr;
                     }
 
-                    return static_cast<_Type*>(pObserverData->GetBasePtr());
+                    return pPtr;
                 }
 
                 void __YYAPI Reset() noexcept
@@ -160,10 +152,12 @@ namespace YY
                     if (_pOther)
                     {
                         pObserverData = _pOther->GetObserverData();
+                        pPtr = _pOther;
                     }
                     else
                     {
                         pObserverData.Reset();
+                        pPtr = nullptr;
                     }
                 }
 
@@ -228,12 +222,7 @@ namespace YY
             private:
                 _Ret_maybenull_ _Type* __YYAPI GetRawPtr() const noexcept
                 {
-                    if (pObserverData == nullptr)
-                    {
-                        return nullptr;
-                    }
-
-                    return static_cast<_Type*>(pObserverData->GetBasePtr());
+                    return pPtr;
                 }
             };
         } // namespace Memory
