@@ -112,6 +112,23 @@ namespace YY
                 }
             };
 
+            template <class T>
+            class NoAddRefReleaseOnRefPtr :public T
+            {
+            private:
+                static uint32_t __YYAPI AddRef()
+                {
+                    static_assert(false, "RefPtr上主动调用AddRef做什么？");
+                    return 0;
+                }
+
+                static uint32_t __YYAPI Release()
+                {
+                    static_assert(false, "RefPtr上主动调用Release做什么？");
+                    return 0;
+                }
+            };
+
             template<typename _Type>
             class RefPtr
             {
@@ -240,9 +257,9 @@ namespace YY
                     return p;
                 }
 
-                _Ret_maybenull_ _Type* __YYAPI operator->() const noexcept
+                _Ret_maybenull_ NoAddRefReleaseOnRefPtr<_Type>* __YYAPI operator->() const noexcept
                 {
-                    return p;
+                    return reinterpret_cast<NoAddRefReleaseOnRefPtr<_Type>*>(p);
                 }
 
                 template<typename... Args>

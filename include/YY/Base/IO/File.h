@@ -324,7 +324,7 @@ namespace YY
 
                         if (bSkipCompletionNotificationOnSuccess)
                         {
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                         }
                         else
                         {
@@ -345,7 +345,7 @@ namespace YY
                         {
                             // 失败！
                             _pIoTask->OnComplete(_lStatus);
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                             return _lStatus;
                         }
                     }
@@ -371,7 +371,7 @@ namespace YY
 
                         if (bSkipCompletionNotificationOnSuccess)
                         {
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                         }
                         else
                         {
@@ -392,7 +392,7 @@ namespace YY
                         {
                             // 失败！
                             _pIoTask->OnComplete(_lStatus);
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                             return _lStatus;
                         }
                     }
@@ -573,7 +573,7 @@ namespace YY
 
                         if (bSkipCompletionNotificationOnSuccess)
                         {
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                         }
                         else
                         {
@@ -594,7 +594,7 @@ namespace YY
                         {
                             // 失败！
                             _pIoTask->OnComplete(_lStatus);
-                            _pIoTask->Release();
+                            _pIoTask.Get()->Release();
                             return _lStatus;
                         }
                     }
