@@ -578,6 +578,20 @@ namespace YY
                     return true;
                 }
 
+                bool __YYAPI operator!=(_In_ const Span& _Other) const
+                {
+                    if (GetLength() != _Other.GetLength())
+                        return true;
+
+                    for (size_t i = 0; i < GetLength(); ++i)
+                    {
+                        if (pData[i] == _Other.pData[i])
+                            return true;
+                    }
+
+                    return false;
+                }
+
                 _Type* __YYAPI begin() noexcept
                 {
                     return pData;

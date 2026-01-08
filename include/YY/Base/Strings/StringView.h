@@ -139,8 +139,8 @@ namespace YY
 
                 bool __YYAPI operator!=(StringView _sOther) const
                 {
-                    if (cchString == _sOther.cchString)
-                        return false;
+                    if (cchString != _sOther.cchString)
+                        return true;
 
                     return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) != 0;
                 }
@@ -860,8 +860,8 @@ namespace YY
 
                 bool __YYAPI operator!=(StringView _sOther) const
                 {
-                    if (cchString == _sOther.cchString)
-                        return false;
+                    if (cchString != _sOther.cchString)
+                        return true;
 
                     return memcmp(sString, _sOther.sString, cchString * sizeof(sString[0])) != 0;
                 }

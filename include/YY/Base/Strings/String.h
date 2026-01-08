@@ -657,16 +657,16 @@ namespace YY
 
                 bool __YYAPI operator!=(const StringBase& _szSrc) const
                 {
-                    if (this->GetSize() == _szSrc.GetSize())
-                        return false;
+                    if (this->GetSize() != _szSrc.GetSize())
+                        return true;
 
                     return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) != 0;
                 }
 
                 bool __YYAPI operator!=(const StringView& _szSrc) const
                 {
-                    if (this->GetSize() == _szSrc.GetSize())
-                        return false;
+                    if (this->GetSize() != _szSrc.GetSize())
+                        return true;
 
                     return memcmp(this->GetConstString(), _szSrc.GetConstString(), this->GetSize() * sizeof(char_t)) != 0;
                 }
