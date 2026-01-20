@@ -50,7 +50,16 @@ namespace YY
 
                     HRESULT __YYAPI RunTask() override
                     {
-                        pfnResultCallback(lStatus, uint32_t(InternalHigh));
+                        try
+                        {
+                            pfnResultCallback(lStatus, uint32_t(InternalHigh));
+                        }
+                        catch (const YY::OperationCanceledException&)
+                        {
+                            return YY::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                        }
+
+                        return S_OK;
                     }
                 };
 
@@ -485,7 +494,16 @@ namespace YY
 
                         HRESULT __YYAPI RunTask() override
                         {
-                            pfnResultCallback(lStatus);
+                            try
+                            {
+                                pfnResultCallback(lStatus);
+                            }
+                            catch (const YY::OperationCanceledException&)
+                            {
+                                return YY::HRESULT_From_LSTATUS(ERROR_CANCELLED);
+                            }
+
+                            return S_OK;
                         }
                     };
 
