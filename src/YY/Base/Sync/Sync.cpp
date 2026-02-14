@@ -1,6 +1,8 @@
 ﻿#include <YY/Base/Sync/Sync.h>
 #include <YY/Base/Time/TickCount.h>
 
+#include <utility>
+
 #pragma comment(lib, "Synchronization.lib")
 
 __YY_IGNORE_INCONSISTENT_ANNOTATION_FOR_FUNCTION()
@@ -47,7 +49,8 @@ namespace YY
                         if (_uCurrent > _uExpireTick)
                             return false;
 
-                        if (!WaitOnAddress(_pAddress, &_Temp, sizeof(_Temp), (_uExpireTick - _uCurrent).GetTotalMilliseconds()))
+                        const auto _iTotalMilliseconds = (_uExpireTick - _uCurrent).GetTotalMilliseconds();
+                        if (!WaitOnAddress(_pAddress, &_Temp, sizeof(_Temp), _iTotalMilliseconds <= 0 ? 0ul : (DWORD)(std::min)(_iTotalMilliseconds, static_cast<int64_t>(UINT32_MAX))))
                             return false;
                     }
 

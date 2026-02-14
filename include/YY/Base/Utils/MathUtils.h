@@ -41,19 +41,19 @@ namespace YY
                 uint32_t _Ret[4] = {};
 
                 uint64_t _uRemainder = _HighDividend >> 32;
-                _Ret[3] = _uRemainder / _Divisor;
+                _Ret[3] = uint32_t(_uRemainder / _Divisor);
                 _uRemainder %= _Divisor;
 
                 _uRemainder = (_uRemainder << 32) | (_HighDividend & 0xFFFFFFFFull);
-                _Ret[2] = _uRemainder / _Divisor;
+                _Ret[2] = uint32_t(_uRemainder / _Divisor);
                 _uRemainder %= _Divisor;
 
                 _uRemainder = (_uRemainder << 32) | (_LowDividend >> 32);
-                _Ret[1] = _uRemainder / _Divisor;
+                _Ret[1] = uint32_t(_uRemainder / _Divisor);
                 _uRemainder %= _Divisor;
 
                 _uRemainder = (_uRemainder << 32) | (_LowDividend & 0xFFFFFFFFull);
-                _Ret[0] = _uRemainder / _Divisor;
+                _Ret[0] = uint32_t(_uRemainder / _Divisor);
                 _uRemainder %= _Divisor;
 
                 *_Remainder = _uRemainder;
