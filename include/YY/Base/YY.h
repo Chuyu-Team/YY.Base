@@ -102,6 +102,14 @@
         return (_Type)_eLeft & (_Type)_eRight;                       \
     }
 
+#if defined(_HAS_CXX17) && _HAS_CXX17
+// 支持if constexpr(condition) ...
+#define YY_CPP17_IF_CONSTEXPR constexpr
+#else
+// 不支持if constexpr(condition) ...，只能使用普通的if，无法在编译期进行分支判断了。
+#define YY_CPP17_IF_CONSTEXPR
+#endif // _HAS_CXX17
+
 namespace YY
 {
     namespace Base

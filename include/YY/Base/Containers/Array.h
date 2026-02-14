@@ -408,7 +408,7 @@ namespace YY
                         auto _uSize = _pOldSharedData->GetSize();
                         SharedData* _pNewSharedData;
 
-                        if constexpr (std::is_trivially_copyable<_Type>::value)
+                        if YY_CPP17_IF_CONSTEXPR (std::is_trivially_copyable<_Type>::value)
                         {
                             _pNewSharedData = (SharedData*)YY::Base::Memory::ReAlloc(_pOldSharedData, sizeof(SharedData) + sizeof(_Type) * _uNewCapacity);
                             if (!_pNewSharedData)
@@ -833,7 +833,7 @@ namespace YY
                                 return E_INVALIDARG;
                             }
 
-                            if constexpr (std::is_trivially_copyable<_Type>::value)
+                            if YY_CPP17_IF_CONSTEXPR (std::is_trivially_copyable<_Type>::value)
                             {
                                 auto _pData = (_Type*)ReAlloc(Large.pData, _uNewCapacity * sizeof(_Type));
                                 if (!_pData)
