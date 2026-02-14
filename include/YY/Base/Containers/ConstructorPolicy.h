@@ -1,5 +1,6 @@
-#pragma once
+Ôªø#pragma once
 #include <string.h>
+#include <YY/Base/YY.h>
 
 namespace YY
 {
@@ -12,7 +13,7 @@ namespace YY
             {
                 static void Constructor(_Type* _pFirst, _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_constructible<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_constructible<_Type>::value)
                     {
                         memset(_pFirst, 0, (_pLast - _pFirst) * sizeof(*_pFirst));
                     }
@@ -27,7 +28,7 @@ namespace YY
 
                 static void MoveConstructor(_Type* _pDst, _Type* _pFirst, _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_constructible<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_constructible<_Type>::value)
                     {
                         memcpy(_pDst, _pFirst, (_pLast - _pFirst) * sizeof(*_pFirst));
                     }
@@ -47,7 +48,7 @@ namespace YY
 
                 static void CopyConstructor(_Type* _pDst, const _Type* _pFirst, const _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_constructible<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_constructible<_Type>::value)
                     {
                         memcpy(_pDst, _pFirst, (_pLast - _pFirst) * sizeof(*_pFirst));
                     }
@@ -67,9 +68,9 @@ namespace YY
 
                 static void Destructor(_Type* _pFirst, _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_destructible<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_destructible<_Type>::value)
                     {
-                        // »Áπ˚ «∆ΩÃπµƒ£¨ƒ«√¥ ≤√¥“≤≤ª◊ˆ
+                        // Â¶ÇÊûúÊòØÂπ≥Âù¶ÁöÑÔºåÈÇ£‰πà‰ªÄ‰πà‰πü‰∏çÂÅö
                         return;
                     }
                     else
@@ -88,7 +89,7 @@ namespace YY
 
                 static void Copy(_Type* _pDst, const _Type* _pFirst, const _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_copyable<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_copyable<_Type>::value)
                     {
                         memcpy(_pDst, _pFirst, (_pLast - _pFirst) * sizeof(*_pFirst));
                     }
@@ -108,7 +109,7 @@ namespace YY
 
                 static void Move(_Type* _pDst, _Type* _pFirst, _Type* _pLast)
                 {
-                    if constexpr (std::is_trivially_copyable<_Type>::value)
+                    if YY_CPP17_IF_CONSTEXPR (std::is_trivially_copyable<_Type>::value)
                     {
                         memmove(_pDst, _pFirst, (_pLast - _pFirst) * sizeof(*_pFirst));
                     }
@@ -116,11 +117,11 @@ namespace YY
                     {
                         if (_pDst == _pFirst)
                         {
-                            // ÕÍ»´“ª—˘£¨∏¥÷∆…∂£ø£ø£ø
+                            // ÂÆåÂÖ®‰∏ÄÊ†∑ÔºåÂ§çÂà∂Âï•ÔºüÔºüÔºü
                         }
                         else if (_pFirst > _pDst && _pDst < _pLast)
                         {
-                            // «¯”Ú≤„µ˛£¨Œ“√«Ω¯––µﬂµπ“∆∂Ø°£
+                            // Âå∫ÂüüÂ±ÇÂè†ÔºåÊàë‰ª¨ËøõË°åÈ¢†ÂÄíÁßªÂä®„ÄÇ
                             auto _pDstLast = _pDst + (_pLast - _pFirst);
 
                             while (_pFirst != _pLast)

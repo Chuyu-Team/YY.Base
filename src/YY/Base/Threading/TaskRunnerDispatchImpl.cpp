@@ -104,7 +104,7 @@ namespace YY
                                 DispatchTask(std::move(_pTimer));
                             },
                             _pTimer.Get(),
-                            _iDueTime,
+                            (DWORD)(std::min)(_iDueTime, static_cast<int64_t>(UINT32_MAX)),
                             0,
                             WT_EXECUTEINTIMERTHREAD | WT_EXECUTEONLYONCE);
 
@@ -133,6 +133,13 @@ namespace YY
                             }
                         }
                     }
+                    const auto _iTotalMilliseconds = (_pWait->uTimeOut - TickCount::GetNow()).GetTotalMilliseconds();
+                    if (_iTotalMilliseconds <= 0)
+                    {
+                        _pWait->uWaitResult = WaitForSingleObject(_pWait->hHandle, 0);
+                        DispatchTask(std::move(_pWait));
+                        return S_OK;
+                    }
 
                     _pWait.Get()->AddWeakRef();
                     // 我们使用 RegisterWaitForSingleObject 这是因为它允许我们在线程池线程中执行回调，没有额外的上下文切换开销。
@@ -158,7 +165,7 @@ namespace YY
                             DispatchTask(std::move(_pWait));
                         },
                         _pWait.Get(),
-                        (_pWait->uTimeOut - TickCount::GetNow()).GetTotalMilliseconds(),
+                        (DWORD)(std::min)(_iTotalMilliseconds, static_cast<int64_t>(UINT32_MAX)),
                         WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE);
 
                     if (!_bRet)

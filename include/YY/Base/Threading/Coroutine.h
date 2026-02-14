@@ -178,6 +178,7 @@ namespace YY
                                 }
                                 catch (const YY::Base::OperationCanceledException& _Exception)
                                 {
+                                    UNREFERENCED_PARAMETER(_Exception);
                                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                                 }
                             }
