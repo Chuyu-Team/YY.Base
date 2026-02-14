@@ -93,7 +93,7 @@ namespace YY
                 public:
                     intptr_t iReserved = 0;
 
-                    struct CoroutineInfo
+                    struct alignas(sizeof(intptr_t) * 2) CoroutineInfo
                     {
                         // 0 hCoroutineHandle
                         // 1 pOwner
