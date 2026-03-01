@@ -4,6 +4,7 @@
 #include <YY/Base/Containers/DoublyLinkedList.h>
 #include <YY/Base/Sync/SRWLock.h>
 #include <YY/Base/Sync/AutoLock.h>
+#include <YY/Base/Containers/Optional.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -158,11 +159,10 @@ namespace YY
                 /// <returns></returns>
                 virtual bool __YYAPI Cancel()
                 {
-                    if ((AsyncStatus)YY::Sync::CompareExchange(reinterpret_cast<volatile uint32_t*>(&eStatus), uint32_t(AsyncStatus::Canceled), uint32_t(AsyncStatus::Started)) != AsyncStatus::Started)
+                    if (!BeginNotifyCompletedHandlers(AsyncStatus::Canceled))
                     {
                         return false;
                     }
-
                     WakeByAddressAll((PVOID)&eStatus);
                     NotifyCompletedHandlers();
                     return true;
@@ -217,6 +217,8 @@ namespace YY
                     NotifyCompletedHandlers();
                     return true;
                 }
+
+                virtual void __YYAPI NotifyCompletedHandlers() = 0;
             };
 
             template<typename ResultType_>
@@ -302,6 +304,12 @@ namespace YY
                 Delegate oCompletedDelegate;
 
             public:
+                /// <summary>
+                /// 如果操作成功，则获取异步操作的结果。
+                /// </summary>
+                /// <returns>指向 ResultType 的引用，表示获取到的结果。</returns>
+                virtual void __YYAPI GetResult() = 0;
+
                 bool __YYAPI AddCompletedHandler(_In_ AsyncOperationCompletedHandler* _pHandler)
                 {
                     if (!_pHandler)
@@ -338,6 +346,110 @@ namespace YY
                     }
 
                     _oCompletedDelegate.InvokeAllHandlers(this, GetStatus());
+                }
+            };
+
+            template<typename ResultType_>
+            class AsyncOperationImpl : public AsyncOperation<ResultType_>
+            {
+            public:
+                using ResultType = ResultType_;
+                using AsyncOperationCompletedHandler = typename AsyncOperation<ResultType>::AsyncOperationCompletedHandler;
+                using Delegate = typename AsyncOperation<ResultType>::Delegate;
+
+            private:
+                union
+                {
+                    byte oResultBuffer[sizeof(ResultType)] = {};
+                    ResultType oResult;
+                };
+
+            public:
+                ResultType& __YYAPI GetResult() override
+                {
+                    if (!WaitTask())
+                    {
+                        throw YY::Exception(_S("等待异步任务WaitTask失败。"), E_FAIL);
+                    }
+
+                    switch (GetStatus())
+                    {
+                    case AsyncStatus::Completed:
+                        break;
+                    case AsyncStatus::Canceled:
+                        throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
+                        break;
+                    case AsyncStatus::Error:
+                        throw YY::Exception(GetErrorCode());
+                        break;
+                    default:
+                        throw YY::Exception(_S("异步任务状态不符合预期。"), E_FAIL);
+                        break;
+                    }
+
+                    return oResult;
+                }
+
+            protected:
+                bool __YYAPI Resolve(ResultType&& _oResult)
+                {
+                    if (!BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    new (oResultBuffer) ResultType(_oResult);
+                    NotifyCompletedHandlers();
+                    return true;
+                }
+            };
+
+            template<>
+            class AsyncOperationImpl<void> : public AsyncOperation<void>
+            {
+            public:
+                using ResultType = void;
+                using AsyncOperationCompletedHandler = typename AsyncOperation<ResultType>::AsyncOperationCompletedHandler;
+                using Delegate = typename AsyncOperation<ResultType>::Delegate;
+
+            private:
+
+            public:
+                void __YYAPI GetResult() override
+                {
+                    if (!WaitTask())
+                    {
+                        throw YY::Exception(_S("等待异步任务WaitTask失败。"), E_FAIL);
+                    }
+
+                    switch (GetStatus())
+                    {
+                    case AsyncStatus::Completed:
+                        break;
+                    case AsyncStatus::Canceled:
+                        throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
+                        break;
+                    case AsyncStatus::Error:
+                        throw YY::Exception(GetErrorCode());
+                        break;
+                    default:
+                        throw YY::Exception(_S("异步任务状态不符合预期。"), E_FAIL);
+                        break;
+                    }
+
+                    return;
+                }
+
+            protected:
+                bool __YYAPI Resolve(void)
+                {
+                    if (!BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    NotifyCompletedHandlers();
+                    return true;
                 }
             };
         }

@@ -44,10 +44,34 @@ namespace YY
 
             YY_APPLY_ENUM_CALSS_BIT_OPERATOR(TaskEntryStyle);
 
+            template<typename ResultType_>
+            class Task
+            {
+            public:
+                using ResultType = ResultType_;
+
+            private:
+                YY::RefPtr<AsyncOperation<ResultType_>> pAsyncOperation;
+
+            public:
+                /// <summary>
+                /// 获取对象存储的错误代码。
+                /// </summary>
+                /// <returns>如果异步操作失败，则返回内部存储的错误代码（hr）；如果成功，则返回 S_OK。</returns>
+                HRESULT __YYAPI GetErrorCode() const noexcept
+                {
+                    return pAsyncOperation->GetErrorCode();
+                }
+
+                AsyncStatus __YYAPI GetStatus() const noexcept
+                {
+                    return pAsyncOperation->GetStatus();
+                }
+            };
+
             class TaskRunner;
 
-            struct TaskEntry
-                : public AsyncOperation<void>
+            struct TaskEntry : public AsyncOperation<void>
             {
                 TaskEntryStyle fStyle = TaskEntryStyle::None;
 
