@@ -1,7 +1,7 @@
 ﻿#include <YY/Base/Sync/Sync.h>
 #include <YY/Base/Time/TickCount.h>
 
-#include <utility>
+#include <algorithm>
 
 #pragma comment(lib, "Synchronization.lib")
 
