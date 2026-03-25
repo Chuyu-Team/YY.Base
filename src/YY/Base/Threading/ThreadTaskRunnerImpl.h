@@ -64,6 +64,9 @@ namespace YY
                 };
 
                 volatile uint32_t uThreadId;
+                uint32_t uTaskRunnerReentryCount = 0;
+                uint32_t uPendingTaskCount = 0;
+                uint32_t uProcessedTaskCount = 0;
                 uString szThreadDescription;
 
             public:
