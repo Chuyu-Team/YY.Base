@@ -586,6 +586,198 @@ namespace TaskRunnerUnitTest
             CloseHandle(_hEvent);
         }
 
+        TEST_METHOD(BindCurrentThreadForProxyMode嵌套)
+        {
+            auto _pTaskRunner = ThreadTaskRunner::BindCurrentThreadForProxyMode();
+
+            int i = 0;
+
+            _pTaskRunner->PostTask(
+                [&i]()
+                {
+                    ++i;
+                });
+
+            _pTaskRunner->PostTask(
+                [&i]()
+                {
+                    ++i;
+
+                    TaskRunner::GetCurrent()->PostTask(
+                        [&i]()
+                        {
+                            ++i;
+
+                            TaskRunner::GetCurrent()->PostTask(
+                                [&i]()
+                                {
+                                    ++i;
+                                    ThreadTaskRunner::PostQuitMessage(0);
+
+                                });
+                        });
+
+                    for (;;)
+                    {
+                        MSG _msg;
+                        if (!GetMessageW(&_msg, nullptr, 0, 0))
+                            break;
+
+
+                        TranslateMessage(&_msg);
+                        DispatchMessageW(&_msg);
+                    }
+
+                    ThreadTaskRunner::PostQuitMessage(0);
+                });
+
+            for (;;)
+            {
+                MSG _msg;
+                if (!GetMessageW(&_msg, nullptr, 0, 0))
+                    break;
+
+
+                TranslateMessage(&_msg);
+                DispatchMessageW(&_msg);
+            }
+
+            Assert::AreEqual(i, 4);
+            return;
+        }
+
+        TEST_METHOD(BindCurrentThread嵌套)
+        {
+            auto _pTaskRunner = ThreadTaskRunner::BindCurrentThread();
+
+            int i = 0;
+
+            _pTaskRunner->PostTask(
+                [&i]()
+                {
+                    ++i;
+                });
+
+            _pTaskRunner->PostTask(
+                [&i]()
+                {
+                    ++i;
+
+                    TaskRunner::GetCurrent()->PostTask(
+                        [&i]()
+                        {
+                            ++i;
+
+                            TaskRunner::GetCurrent()->PostTask(
+                                [&i]()
+                                {
+                                    ++i;
+                                    ThreadTaskRunner::PostQuitMessage(0);
+
+                                });
+                        });
+
+                    ThreadTaskRunner::RunUIMessageLoop();
+
+                    ThreadTaskRunner::PostQuitMessage(0);
+                });
+
+            ThreadTaskRunner::RunUIMessageLoop();
+
+            Assert::AreEqual(i, 4);
+            return;
+        }
+
+        TEST_METHOD(ThreadTaskRunner前台嵌套)
+        {
+            auto _pTaskRunner = ThreadTaskRunner::Create(false, L"ThreadTaskRunner前台嵌套");
+
+            int i = 0;
+
+            HANDLE _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+
+            _pTaskRunner->PostTask(
+                [&i, _hEvent]()
+                {
+                    ++i;
+                });
+
+            _pTaskRunner->PostTask(
+                [&i, _hEvent]()
+                {
+                    ++i;
+
+                    TaskRunner::GetCurrent()->PostTask(
+                        [&i, _hEvent]()
+                        {
+                            ++i;
+
+                            TaskRunner::GetCurrent()->PostTask(
+                                [&i]()
+                                {
+                                    ++i;
+                                    ThreadTaskRunner::PostQuitMessage(0);
+
+                                });
+                        });
+
+                    ThreadTaskRunner::RunUIMessageLoop();
+
+
+                    SetEvent(_hEvent);
+                });
+
+            WaitForSingleObject(_hEvent, INFINITE);
+
+            Assert::AreEqual(i, 4);
+            return;
+        }
+
+        TEST_METHOD(ThreadTaskRunner后台嵌套)
+        {
+            auto _pTaskRunner = ThreadTaskRunner::Create(true, L"ThreadTaskRunner后台嵌套");
+
+            int i = 0;
+
+            HANDLE _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+
+            _pTaskRunner->PostTask(
+                [&i, _hEvent]()
+                {
+                    ++i;
+                });
+
+            _pTaskRunner->PostTask(
+                [&i, _hEvent]()
+                {
+                    ++i;
+
+                    TaskRunner::GetCurrent()->PostTask(
+                        [&i, _hEvent]()
+                        {
+                            ++i;
+
+                            TaskRunner::GetCurrent()->PostTask(
+                                [&i]()
+                                {
+                                    ++i;
+                                    ThreadTaskRunner::PostQuitMessage(0);
+
+                                });
+                        });
+
+                    ThreadTaskRunner::RunUIMessageLoop();
+
+
+                    SetEvent(_hEvent);
+                });
+
+            WaitForSingleObject(_hEvent, INFINITE);
+
+            Assert::AreEqual(i, 4);
+            return;
+        }
+
 #if 0
         // 耗时太长，暂时不启用
         TEST_METHOD(时间间隔检测)

@@ -51,6 +51,9 @@ namespace YY
                 };
 
                 uint32_t uThreadId = Threading::GetCurrentThreadId();
+                uint32_t uTaskRunnerReentryCount = 0;
+                uint32_t uPendingTaskCount = 0;
+                uint32_t uProcessedTaskCount = 0;
                 // 故意打开一次句柄，保证ThreadTaskRunner释放前， uThreadId 始终有效。
                 HANDLE hThread = nullptr;
                 HWND hTaskRunnerWnd = nullptr;
@@ -79,7 +82,7 @@ namespace YY
                     if (!hThread)
                         return false;
 
-                    hTaskRunnerWnd = CreateWindowExW(0, L"Message", nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
+                    hTaskRunnerWnd = CreateWindowExW(0, L"Message", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
                     if (!hTaskRunnerWnd)
                         return false;
 
@@ -161,7 +164,7 @@ namespace YY
                     // 因为刚才 uWakeupCountAndPushLock 已经将第一个标记位设置位 1
                     // 所以我们再 uWakeupCountAndPushLock += 1即可。
                     // uWakeupCount + 1 <==> uWakeupCountAndPushLock + 2 <==> (uWakeupCountAndPushLock | 1) + 1
-                    if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * 2u)
+                    if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * (2u + uTaskRunnerReentryCount))
                     {
                         // 为 1 是说明当前正在等待输入消息，并且未主动唤醒
                         // 如果唤醒失败处理，暂时不做处理，可能是当前系统资源不足，既然已经加入了队列我们先这样吧。
@@ -239,11 +242,20 @@ namespace YY
 
                 void __YYAPI ExecuteTaskRunner()
                 {
-                    const auto _uWakeupCount = uWakeupCountAndPushLock / WakeupOnceRaw;
-                    if (_uWakeupCount == 0)
-                        return;
+                    if (uPendingTaskCount == uTaskRunnerReentryCount)
+                    {
+                        uPendingTaskCount += (uWakeupCountAndPushLock / WakeupOnceRaw) - uProcessedTaskCount - uTaskRunnerReentryCount;
+                        if (uPendingTaskCount == uTaskRunnerReentryCount)
+                        {
+                            return;
+                        }
+                    }
 
-                    uint32_t _uProcessingCount = 0ul;
+                    ++uTaskRunnerReentryCount;
+
+                    // 避免队列发生阻塞，所以我们立即
+                    Wakeup();
+
                     do
                     {
                         if (!IsShared())
@@ -261,22 +273,24 @@ namespace YY
 
                         if (_pTask)
                         {
-                            ++_uProcessingCount;
                             _pTask->operator()();
+                            ++uProcessedTaskCount;
+                            --uPendingTaskCount;
                             _pTask->Release();
                         }
                         else
                         {
                             break;
                         }
-                    } while (_uProcessingCount != _uWakeupCount);
+                    } while (uPendingTaskCount != (uTaskRunnerReentryCount - 1));
 
-                    if (Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * _uProcessingCount) >= WakeupOnceRaw)
+                    if (uProcessedTaskCount)
                     {
-                        // 队列已经插入新的Task，安排计划重新执行。
-                        // 这里不立即重新执行是为了防止Task自身内部PostTask导致这个循环无法退出。
-                        Wakeup();
+                        Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * uProcessedTaskCount);
+                        uProcessedTaskCount = 0;
                     }
+
+                    --uTaskRunnerReentryCount;
                 }
 
                 void __YYAPI ExecuteTimerTasks()
