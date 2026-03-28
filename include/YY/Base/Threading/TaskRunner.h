@@ -12,7 +12,6 @@
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Threading/Coroutine.h>
 #include <YY/Base/Strings/String.h>
-#include <YY/Base/Threading/Async.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -44,36 +43,13 @@ namespace YY
 
             YY_APPLY_ENUM_CALSS_BIT_OPERATOR(TaskEntryStyle);
 
-            template<typename ResultType_>
-            class Task
-            {
-            public:
-                using ResultType = ResultType_;
-
-            private:
-                YY::RefPtr<AsyncOperation<ResultType_>> pAsyncOperation;
-
-            public:
-                /// <summary>
-                /// 获取对象存储的错误代码。
-                /// </summary>
-                /// <returns>如果异步操作失败，则返回内部存储的错误代码（hr）；如果成功，则返回 S_OK。</returns>
-                HRESULT __YYAPI GetErrorCode() const noexcept
-                {
-                    return pAsyncOperation->GetErrorCode();
-                }
-
-                AsyncStatus __YYAPI GetStatus() const noexcept
-                {
-                    return pAsyncOperation->GetStatus();
-                }
-            };
-
             class TaskRunner;
 
-            struct TaskEntry : public AsyncOperation<void>
+            struct TaskEntry : public RefValue
             {
                 TaskEntryStyle fStyle = TaskEntryStyle::None;
+                // 操作结果，任务可能被取消。
+                HRESULT hr = E_PENDING;
 
                 std::function<void(void)> pfnTaskCallback;
 
@@ -95,6 +71,20 @@ namespace YY
                 }
 
                 /// <summary>
+                /// 设置错误代码，并唤醒相关等待者。
+                /// </summary>
+                /// <param name="_hrCode">任务退出代码。</param>
+                /// <returns></returns>
+                void __YYAPI Wakeup(_In_ HRESULT _hrCode);
+
+                /// <summary>
+                /// 阻塞等待任务完成或直到达到指定超时时间（默认无限等待）。
+                /// </summary>
+                /// <param name="_oTimeout">最大等待时间，类型为 YY::TimeSpan。默认值为 YY::TimeSpan::GetMax()，表示无限期等待。</param>
+                /// <returns>布尔值：如果在指定超时时间内等待成功（任务完成等）则返回 true；如果超时则返回 false。</returns>
+                bool __YYAPI WaitTask(YY::TimeSpan _oTimeout = YY::TimeSpan::GetMax());
+
+                /// <summary>
                 /// 等待此任务完成。
                 /// </summary>
                 /// <param name="_uMilliseconds">需要等待的毫秒数。</param>
@@ -106,8 +96,10 @@ namespace YY
 
                 bool __YYAPI IsCanceled() const noexcept
                 {
-                    return GetStatus() == AsyncStatus::Canceled;
+                    return HasFlags(fStyle, TaskEntryStyle::Canceled);
                 }
+
+                virtual bool __YYAPI Cancel();
 
                 virtual HRESULT __YYAPI RunTask();
             };

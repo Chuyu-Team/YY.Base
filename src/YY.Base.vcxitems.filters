@@ -320,6 +320,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\FunctionTraits.h">
       <Filter>头文件\YY\Base\Functional</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Threading\Task.h">
+      <Filter>头文件\YY\Base\Threading</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(MSBuildThisFileDirectory)\YY.Base.natvis">

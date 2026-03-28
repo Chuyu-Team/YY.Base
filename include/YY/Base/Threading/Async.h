@@ -136,6 +136,8 @@ namespace YY
                 volatile AsyncStatus eStatus = AsyncStatus::Started;
 
             public:
+                AsyncInfo() = default;
+
                 AsyncInfo(const AsyncInfo&) = delete;
                 AsyncInfo& operator=(const AsyncInfo&) = delete;
 
@@ -360,19 +362,19 @@ namespace YY
             private:
                 union
                 {
-                    byte oResultBuffer[sizeof(ResultType)] = {};
+                    char oResultBuffer[sizeof(ResultType)] = {};
                     ResultType oResult;
                 };
 
             public:
                 ResultType& __YYAPI GetResult() override
                 {
-                    if (!WaitTask())
+                    if (!this->WaitTask())
                     {
                         throw YY::Exception(_S("等待异步任务WaitTask失败。"), E_FAIL);
                     }
 
-                    switch (GetStatus())
+                    switch (this->GetStatus())
                     {
                     case AsyncStatus::Completed:
                         break;
@@ -380,7 +382,7 @@ namespace YY
                         throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
                         break;
                     case AsyncStatus::Error:
-                        throw YY::Exception(GetErrorCode());
+                        throw YY::Exception(this->GetErrorCode());
                         break;
                     default:
                         throw YY::Exception(_S("异步任务状态不符合预期。"), E_FAIL);
@@ -390,16 +392,15 @@ namespace YY
                     return oResult;
                 }
 
-            protected:
                 bool __YYAPI Resolve(ResultType&& _oResult)
                 {
-                    if (!BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    if (!this->BeginNotifyCompletedHandlers(AsyncStatus::Completed))
                     {
                         return false;
                     }
 
                     new (oResultBuffer) ResultType(_oResult);
-                    NotifyCompletedHandlers();
+                    this->NotifyCompletedHandlers();
                     return true;
                 }
             };
@@ -440,7 +441,6 @@ namespace YY
                     return;
                 }
 
-            protected:
                 bool __YYAPI Resolve(void)
                 {
                     if (!BeginNotifyCompletedHandlers(AsyncStatus::Completed))

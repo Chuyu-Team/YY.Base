@@ -8,6 +8,7 @@
 #include <YY/Base/Threading/ProcessThreads.h>
 #include <YY/Base/Time/TickCount.h>
 #include <YY/Base/Strings/String.h>
+#include <YY/Base/Threading/Task.h>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -43,6 +44,14 @@ namespace TaskRunnerUnitTest
                     });
             }
 
+            Task<void> _Tast(nullptr);
+
+            auto TTT = _Tast.Then(
+                (TaskRunner*)_pTaskRunner.Get(),
+                [&_uCount2]()
+                {
+                    return;
+                });
 
             for (int i= 0; _uCount2 != 1000;++i)
             {
