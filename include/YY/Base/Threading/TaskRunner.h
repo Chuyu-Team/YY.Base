@@ -12,6 +12,7 @@
 #include <YY/Base/Time/TimeSpan.h>
 #include <YY/Base/Threading/Coroutine.h>
 #include <YY/Base/Strings/String.h>
+#include <YY/Base/Threading/Task.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -216,6 +217,24 @@ namespace YY
                 }
 
                 virtual TaskRunnerStyle __YYAPI GetStyle() const noexcept = 0;
+
+
+                template<typename AsyncCallbackType_, typename ResultType_ = typename FunctionTraits<AsyncCallbackType_>::ReturnType>
+                Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback)
+                {
+                    using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback));
+                    if (!_pTaskAsyncOperation)
+                        throw Exception();
+
+                    PostTask(
+                        [_pTaskAsyncOperation]()
+                        {
+                            _pTaskAsyncOperation->Resume();
+                        });
+
+                    return Task<ResultType_>(_pTaskAsyncOperation);
+                }
 
 #if defined(_HAS_CXX20) && _HAS_CXX20
                 /// <summary>

@@ -16,177 +16,11 @@ namespace YY
         {
             class TaskRunner;
 
-            namespace Detail
-            {
-                template<typename SourceResultType_, typename ContinueResultType_, typename ContinueCallbackType_, bool bSourceIsVoid = std::is_void<SourceResultType_>::value, bool bContinueIsVoid = std::is_void<ContinueResultType_>::value>
-                class ContinueHandler;
+            template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
+            class TaskContinueAsyncOperation;
 
-                template<typename SourceResultType_, typename ContinueResultType_, typename ContinueCallbackType_>
-                class ContinueHandler<SourceResultType_, ContinueResultType_, ContinueCallbackType_, false, false>
-                    : public AsyncOperationImpl<ContinueResultType_>
-                    , public AsyncOperationCompletedHandler<SourceResultType_>
-                {
-                public:
-                    using SourceResultType = SourceResultType_;
-                    using ContinueResultType = ContinueResultType_;
-                    using ContinueCallbackType = ContinueCallbackType_;
-
-                    WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
-                    ContinueCallbackType pfnTaskCallback;
-
-                    ContinueHandler(ContinueCallbackType&& _pfnTaskCallback)
-                        : pfnTaskCallback(std::move(_pfnTaskCallback))
-                    {
-                    }
-
-                    void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
-                    {
-                        if (_eStatus != AsyncStatus::Completed)
-                        {
-                            this->SetErrorCode(_pAsyncInfo->GetErrorCode());
-                            return;
-                        }
-
-                        try
-                        {
-                            auto& _oResult = _pAsyncInfo->GetResult();
-                            if (!this->Resolve(pfnTaskCallback(_oResult)))
-                            {
-                                this->SetErrorCode(E_FAIL);
-                            }
-                        }
-                        catch (const YY::Exception& _oEx)
-                        {
-                            this->SetErrorCode(_oEx.GetErrorCode());
-                        }
-                    }
-                };
-
-                template<typename SourceResultType_, typename ContinueResultType_, typename ContinueCallbackType_>
-                class ContinueHandler<SourceResultType_, ContinueResultType_, ContinueCallbackType_, false, true>
-                    : public AsyncOperationImpl<void>
-                    , public AsyncOperationCompletedHandler<SourceResultType_>
-                {
-                public:
-                    using SourceResultType = SourceResultType_;
-                    using ContinueResultType = ContinueResultType_;
-                    using ContinueCallbackType = ContinueCallbackType_;
-
-                    WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
-                    ContinueCallbackType pfnTaskCallback;
-
-                    ContinueHandler(ContinueCallbackType&& _pfnTaskCallback)
-                        : pfnTaskCallback(std::move(_pfnTaskCallback))
-                    {
-                    }
-
-                    void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
-                    {
-                        if (_eStatus != AsyncStatus::Completed)
-                        {
-                            this->SetErrorCode(_pAsyncInfo->GetErrorCode());
-                            return;
-                        }
-
-                        try
-                        {
-                            auto& _oResult = _pAsyncInfo->GetResult();
-                            pfnTaskCallback(_oResult);
-                            if (!this->Resolve())
-                            {
-                                this->SetErrorCode(E_FAIL);
-                            }
-                        }
-                        catch (const YY::Exception& _oEx)
-                        {
-                            this->SetErrorCode(_oEx.GetErrorCode());
-                        }
-                    }
-                };
-
-                template<typename SourceResultType_, typename ContinueResultType_, typename ContinueCallbackType_>
-                class ContinueHandler<SourceResultType_, ContinueResultType_, ContinueCallbackType_, true, false>
-                    : public AsyncOperationImpl<ContinueResultType_>
-                    , public AsyncOperationCompletedHandler<void>
-                {
-                public:
-                    using SourceResultType = SourceResultType_;
-                    using ContinueResultType = ContinueResultType_;
-                    using ContinueCallbackType = ContinueCallbackType_;
-
-                    WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
-                    ContinueCallbackType pfnTaskCallback;
-
-                    ContinueHandler(ContinueCallbackType&& _pfnTaskCallback)
-                        : pfnTaskCallback(std::move(_pfnTaskCallback))
-                    {
-                    }
-
-                    void __YYAPI OnCompleted(AsyncOperation<void>* _pAsyncInfo, AsyncStatus _eStatus) override
-                    {
-                        if (_eStatus != AsyncStatus::Completed)
-                        {
-                            this->SetErrorCode(_pAsyncInfo->GetErrorCode());
-                            return;
-                        }
-
-                        try
-                        {
-                            _pAsyncInfo->GetResult();
-                            if (!this->Resolve(pfnTaskCallback()))
-                            {
-                                this->SetErrorCode(E_FAIL);
-                            }
-                        }
-                        catch (const YY::Exception& _oEx)
-                        {
-                            this->SetErrorCode(_oEx.GetErrorCode());
-                        }
-                    }
-                };
-
-                template<typename SourceResultType_, typename ContinueResultType_, typename ContinueCallbackType_>
-                class ContinueHandler<SourceResultType_, ContinueResultType_, ContinueCallbackType_, true, true>
-                    : public AsyncOperationImpl<void>
-                    , public AsyncOperationCompletedHandler<void>
-                {
-                public:
-                    using SourceResultType = SourceResultType_;
-                    using ContinueResultType = ContinueResultType_;
-                    using ContinueCallbackType = ContinueCallbackType_;
-
-                    WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
-                    ContinueCallbackType pfnTaskCallback;
-
-                    ContinueHandler(ContinueCallbackType&& _pfnTaskCallback)
-                        : pfnTaskCallback(std::move(_pfnTaskCallback))
-                    {
-                    }
-
-                    void __YYAPI OnCompleted(AsyncOperation<void>* _pAsyncInfo, AsyncStatus _eStatus) override
-                    {
-                        if (_eStatus != AsyncStatus::Completed)
-                        {
-                            this->SetErrorCode(_pAsyncInfo->GetErrorCode());
-                            return;
-                        }
-
-                        try
-                        {
-                            _pAsyncInfo->GetResult();
-                            pfnTaskCallback();
-                            if (!this->Resolve())
-                            {
-                                this->SetErrorCode(E_FAIL);
-                            }
-                        }
-                        catch (const YY::Exception& _oEx)
-                        {
-                            this->SetErrorCode(_oEx.GetErrorCode());
-                        }
-                    }
-                };
-            } // namespace Detail
+            template<typename ResultType_, typename CallbackType_>
+            class TaskAsyncOperation;
 
             template<typename ResultType_>
             class Task
@@ -236,69 +70,165 @@ namespace YY
                 Task<ContinueResultType_> __YYAPI Then(_In_ TaskRunner* _pResumeTaskRunner, _In_ ContinueCallback&& pfnTaskCallback)
                 {
                     using ContinueCallbackType = typename std::decay<ContinueCallback>::type;
-                    using ContinueHandlerType = Detail::ContinueHandler<ResultType, ContinueResultType_, ContinueCallbackType>;
+                    using TaskContinueAsyncOperationType = TaskContinueAsyncOperation<ResultType, ContinueResultType_, ContinueCallbackType>;
 
-                    auto _pContinueHandler = YY::RefPtr<ContinueHandlerType>::Create(std::forward<ContinueCallback>(pfnTaskCallback));
-                    _pContinueHandler->pResumeTaskRunnerWeak = _pResumeTaskRunner;
-                    pAsyncOperation->AddCompletedHandler(_pContinueHandler);
-                    return Task<ContinueResultType_>(_pContinueHandler);
+                    auto _pTaskContinueAsyncOperation = YY::RefPtr<TaskContinueAsyncOperationType>::Create(std::forward<ContinueCallback>(pfnTaskCallback));
+                    _pTaskContinueAsyncOperation->pResumeTaskRunnerWeak = _pResumeTaskRunner;
+                    pAsyncOperation->AddCompletedHandler(_pTaskContinueAsyncOperation);
+                    return Task<ContinueResultType_>(_pTaskContinueAsyncOperation);
                 }
             };
 
-            template<>
-            class Task<void>
+            template<typename CallbackType_, typename ResultType_ = typename FunctionTraits<CallbackType_>::ReturnType>
+            class TaskAsyncOperation : public AsyncOperationImpl<ResultType_>
+            {
+            public:
+                using ResultType = ResultType_;
+                using CallbackType = CallbackType_;
+
+                WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
+                CallbackType pfnTaskCallback;
+
+                TaskAsyncOperation(CallbackType&& _pfnTaskCallback)
+                    : pfnTaskCallback(std::move(_pfnTaskCallback))
+                {
+                }
+
+                template<typename... _Parameters>
+                bool __YYAPI Resume(_Parameters... _oParameters)
+                {
+                    try
+                    {
+                        if (!this->Resolve(pfnTaskCallback(std::forward<_Parameters>(_oParameters)...)))
+                        {
+                            this->SetErrorCode(E_FAIL);
+                            return false;
+                        }
+                    }
+                    catch (const YY::Exception& _oEx)
+                    {
+                        this->SetErrorCode(_oEx.GetErrorCode());
+                        return false;
+                    }
+                    return true;
+                }
+            };
+
+            template<typename CallbackType_>
+            class TaskAsyncOperation<CallbackType_, void > : public AsyncOperationImpl<void>
             {
             public:
                 using ResultType = void;
+                using CallbackType = CallbackType_;
 
-            private:
-                YY::RefPtr<AsyncOperation<ResultType>> pAsyncOperation;
+                WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
+                CallbackType pfnTaskCallback;
 
-            public:
-                Task(YY::RefPtr<AsyncOperation<ResultType>> _pAsyncOperation) noexcept
-                    : pAsyncOperation(std::move(_pAsyncOperation))
+                TaskAsyncOperation(CallbackType&& _pfnTaskCallback)
+                    : pfnTaskCallback(std::move(_pfnTaskCallback))
                 {
                 }
 
-                Task(Task&& _oTher) noexcept
-                    : pAsyncOperation(std::move(_oTher.pAsyncOperation))
+                template<typename... _Parameters>
+                bool __YYAPI Resume(_Parameters... _oParameters)
                 {
-                }
-
-                Task(const Task& _oTher)
-                    : pAsyncOperation(_oTher.pAsyncOperation)
-                {
-                }
-
-                Task& operator=(const Task& _oTher) = default;
-
-                Task& operator=(Task&& _oTher) noexcept = default;
-
-                HRESULT __YYAPI GetErrorCode() const noexcept
-                {
-                    return pAsyncOperation->GetErrorCode();
-                }
-
-                AsyncStatus __YYAPI GetStatus() const noexcept
-                {
-                    return pAsyncOperation->GetStatus();
-                }
-
-                template<typename ContinueCallback, typename ContinueResultType_ = typename FunctionTraits<ContinueCallback>::ReturnType>
-                Task<ContinueResultType_> __YYAPI Then(_In_ TaskRunner* _pResumeTaskRunner, _In_ ContinueCallback&& pfnTaskCallback)
-                {
-                    using ContinueCallbackType = typename std::decay<ContinueCallback>::type;
-                    using ContinueHandlerType = Detail::ContinueHandler<void, ContinueResultType_, ContinueCallbackType>;
-
-                    auto _pContinueHandler = YY::RefPtr<ContinueHandlerType>::Create(std::forward<ContinueCallback>(pfnTaskCallback));
-                    _pContinueHandler->pResumeTaskRunnerWeak = _pResumeTaskRunner;
-                    pAsyncOperation->AddCompletedHandler(_pContinueHandler);
-                    return Task<ContinueResultType_>(_pContinueHandler);
+                    try
+                    {
+                        pfnTaskCallback(std::forward<_Parameters>(_oParameters)...);
+                        if (!this->Resolve())
+                        {
+                            this->SetErrorCode(E_FAIL);
+                            return false;
+                        }
+                    }
+                    catch (const YY::Exception& _oEx)
+                    {
+                        this->SetErrorCode(_oEx.GetErrorCode());
+                        return false;
+                    }
+                    return true;
                 }
             };
 
+            template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
+            class TaskContinueAsyncOperation
+                : public TaskAsyncOperation<CallbackType_, ResultType_>
+                , public AsyncOperationCompletedHandler<SourceResultType_>
+            {
+            public:
+                using SourceResultType = SourceResultType_;
+                using ResultType = ResultType_;
+                using CallbackType = CallbackType_;
+
+                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                {
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    if (_eStatus != AsyncStatus::Completed)
+                    {
+                        this->SetErrorCode(_pAsyncInfo->GetErrorCode());
+                        return;
+                    }
+
+                    auto _pResumeTaskRunner = this->pResumeTaskRunnerWeak.Get();
+                    if (!_pResumeTaskRunner)
+                    {
+                        this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                        return;
+                    }
+
+                    _pResumeTaskRunner->PostTask(
+                        [_pThis = YY::RefPtr<TaskContinueAsyncOperation>(this), _pAsyncInfo = YY::RefPtr<AsyncOperation<SourceResultType>>(_pAsyncInfo)]()
+                        {
+                            _pThis->Resume(_pAsyncInfo->GetResult());
+                        });
+                }
+            };
+
+            template<typename ResultType_, typename CallbackType_>
+            class TaskContinueAsyncOperation<void, ResultType_, CallbackType_>
+                : public TaskAsyncOperation<CallbackType_, ResultType_>
+                , public AsyncOperationCompletedHandler<void>
+            {
+            public:
+                using SourceResultType = void;
+                using ResultType = ResultType_;
+                using CallbackType = CallbackType_;
+
+                TaskContinueAsyncOperation(CallbackType&& _pfnTaskCallback)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                {
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    if (_eStatus != AsyncStatus::Completed)
+                    {
+                        this->SetErrorCode(_pAsyncInfo->GetErrorCode());
+                        return;
+                    }
+
+                    auto _pResumeTaskRunner = this->pResumeTaskRunnerWeak.Get();
+                    if (!_pResumeTaskRunner)
+                    {
+                        this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                        return;
+                    }
+
+                    _pResumeTaskRunner->PostTask(
+                        [_pThis = YY::RefPtr<TaskContinueAsyncOperation>(this)]()
+                        {
+                            _pThis->Resume();
+                        });
+                }
+            };
         } // namespace YY::Base::Threading
     } // namespace YY::Base
 
     using namespace YY::Base::Threading;
 } // namespace YY
+
+#pragma pack(pop)
