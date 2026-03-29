@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include <functional>
 #include <type_traits>
 #include <utility>
 #include <YY/Base/Threading/Async.h>
@@ -74,8 +73,18 @@ namespace YY
 
                     auto _pTaskContinueAsyncOperation = YY::RefPtr<TaskContinueAsyncOperationType>::Create(std::forward<ContinueCallback>(pfnTaskCallback));
                     _pTaskContinueAsyncOperation->pResumeTaskRunnerWeak = _pResumeTaskRunner;
-                    pAsyncOperation->AddCompletedHandler(_pTaskContinueAsyncOperation);
+                    _pTaskContinueAsyncOperation.Get()->AddRef();
+                    if (!pAsyncOperation->AddCompletedHandler(_pTaskContinueAsyncOperation))
+                    {
+                        _pTaskContinueAsyncOperation->OnCompleted(pAsyncOperation, pAsyncOperation->GetStatus());
+                    }
                     return Task<ContinueResultType_>(_pTaskContinueAsyncOperation);
+                }
+
+                template<typename ContinueCallback, typename ContinueResultType_ = typename FunctionTraits<ContinueCallback>::ReturnType>
+                Task<ContinueResultType_> __YYAPI Then(_In_ ContinueCallback&& pfnTaskCallback)
+                {
+                    return Then(YY::TaskRunner::GetCurrent(), std::forward<ContinueCallback>(pfnTaskCallback));
                 }
             };
 
@@ -167,6 +176,7 @@ namespace YY
 
                 void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
                 {
+                    auto _pThis = YY::RefPtr<TaskContinueAsyncOperation>::FromPtr(this);
                     if (_eStatus != AsyncStatus::Completed)
                     {
                         this->SetErrorCode(_pAsyncInfo->GetErrorCode());
@@ -181,7 +191,7 @@ namespace YY
                     }
 
                     _pResumeTaskRunner->PostTask(
-                        [_pThis = YY::RefPtr<TaskContinueAsyncOperation>(this), _pAsyncInfo = YY::RefPtr<AsyncOperation<SourceResultType>>(_pAsyncInfo)]()
+                        [_pThis, _pAsyncInfo = YY::RefPtr<AsyncOperation<SourceResultType>>(_pAsyncInfo)]()
                         {
                             _pThis->Resume(_pAsyncInfo->GetResult());
                         });
@@ -205,6 +215,7 @@ namespace YY
 
                 void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
                 {
+                    auto _pThis = YY::RefPtr<TaskContinueAsyncOperation>::FromPtr(this);
                     if (_eStatus != AsyncStatus::Completed)
                     {
                         this->SetErrorCode(_pAsyncInfo->GetErrorCode());
@@ -219,7 +230,7 @@ namespace YY
                     }
 
                     _pResumeTaskRunner->PostTask(
-                        [_pThis = YY::RefPtr<TaskContinueAsyncOperation>(this)]()
+                        [_pThis]()
                         {
                             _pThis->Resume();
                         });

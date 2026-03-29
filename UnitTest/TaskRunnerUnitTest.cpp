@@ -44,15 +44,6 @@ namespace TaskRunnerUnitTest
                     });
             }
 
-            Task<void> _Tast(nullptr);
-
-            auto TTT = _Tast.Then(
-                (TaskRunner*)_pTaskRunner.Get(),
-                [&_uCount2]()
-                {
-                    return;
-                });
-
             for (int i= 0; _uCount2 != 1000;++i)
             {
                 Assert::IsTrue(i < 100);
@@ -859,6 +850,37 @@ namespace TaskRunnerUnitTest
             SetEvent(_hEvent);
             Assert::IsTrue((_pWait->WaitTask(YY::TimeSpan::FromMilliseconds(100ul))));
             // CloseHandle(_hEvent);
+        }
+
+        TEST_METHOD(Then语义)
+        {
+            const auto _hrPending = E_PENDING;
+
+            auto _pHr = std::make_shared<HRESULT>(_hrPending);
+            std::weak_ptr<HRESULT> _pWeakHr = _pHr;
+
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+            auto _Task = _pTaskRunner->CreateTask(
+                []()
+                {
+                    return 8848;
+                });
+
+            _Task.Then(
+                _pTaskRunner,
+                [_pWeakHr](int i) -> void
+                {
+                    auto _pHr = _pWeakHr.lock();
+                    if (!_pHr)
+                        return;
+
+                    *_pHr = i;
+                    WakeByAddressAll(_pHr.get());
+                    return;
+                });
+
+            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 2000);
+            Assert::AreEqual(HRESULT(8848), HRESULT(*_pHr));
         }
     };
 

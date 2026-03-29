@@ -123,7 +123,7 @@ namespace YY
                     for (auto _pEntry = oDelegateHandleList.GetFirst(); _pEntry != nullptr;)
                     {
                         auto _pNext = _pEntry->pNext;
-                        _pNext->OnCompleted(std::forward<decltype(_args)>(_args)...);
+                        _pEntry->OnCompleted(std::forward<decltype(_args)>(_args)...);
                         _pEntry = _pNext;
                     }
                 }
