@@ -5,6 +5,10 @@
 #include <YY/Base/Memory/WeakPtr.h>
 #include <YY/Base/Functional/FunctionTraits.h>
 
+#if defined(_HAS_CXX20) && _HAS_CXX20
+#include <coroutine>
+#endif
+
 #pragma pack(push, __YY_PACKING)
 
 namespace YY
@@ -20,6 +24,108 @@ namespace YY
 
             template<typename ResultType_, typename CallbackType_>
             class TaskAsyncOperation;
+
+#if defined(_HAS_CXX20) && _HAS_CXX20
+            template<typename ResultType_>
+            class TaskCoAwaiter
+                : public YY::RefValue
+                , public AsyncOperationCompletedHandler<ResultType_>
+            {
+            private:
+                YY::RefPtr<AsyncOperation<ResultType_>> pAsyncOperation;
+                std::coroutine_handle<> hCoroutine;
+
+            public:
+                TaskCoAwaiter(YY::RefPtr<AsyncOperation<ResultType_>> _pAsyncOperation) noexcept
+                    : pAsyncOperation(std::move(_pAsyncOperation))
+                {
+                }
+
+                bool await_ready() const noexcept
+                {
+                    return pAsyncOperation->GetStatus() != AsyncStatus::Started;
+                }
+
+                bool await_suspend(std::coroutine_handle<> _hCoroutine) noexcept
+                {
+                    hCoroutine = _hCoroutine;
+                    AddRef();
+                    if (!pAsyncOperation->AddCompletedHandler(this))
+                    {
+                        Release();
+                        return false;
+                    }
+                    return true;
+                }
+
+                ResultType_ await_resume()
+                {
+                    return pAsyncOperation->GetResult();
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<ResultType_>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    UNREFERENCED_PARAMETER(_pAsyncInfo);
+                    UNREFERENCED_PARAMETER(_eStatus);
+
+                    auto _pThis = YY::RefPtr<TaskCoAwaiter<ResultType_>>::FromPtr(this);
+                    if (hCoroutine)
+                    {
+                        hCoroutine.resume();
+                    }
+                }
+            };
+
+            template<>
+            class TaskCoAwaiter<void>
+                : public YY::RefValue
+                , public AsyncOperationCompletedHandler<void>
+            {
+            private:
+                YY::RefPtr<AsyncOperation<void>> pAsyncOperation;
+                std::coroutine_handle<> hCoroutine;
+
+            public:
+                TaskCoAwaiter(YY::RefPtr<AsyncOperation<void>> _pAsyncOperation) noexcept
+                    : pAsyncOperation(std::move(_pAsyncOperation))
+                {
+                }
+
+                bool await_ready() const noexcept
+                {
+                    return pAsyncOperation->GetStatus() != AsyncStatus::Started;
+                }
+
+                bool await_suspend(std::coroutine_handle<> _hCoroutine) noexcept
+                {
+                    hCoroutine = _hCoroutine;
+                    AddRef();
+                    if (!pAsyncOperation->AddCompletedHandler(this))
+                    {
+                        Release();
+                        return false;
+                    }
+                    return true;
+                }
+
+                void await_resume()
+                {
+                    pAsyncOperation->GetResult();
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<void>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    UNREFERENCED_PARAMETER(_pAsyncInfo);
+                    UNREFERENCED_PARAMETER(_eStatus);
+
+                    auto _pThis = YY::RefPtr<TaskCoAwaiter<void>>::FromPtr(this);
+                    if (hCoroutine)
+                    {
+                        hCoroutine.resume();
+                    }
+                }
+            };
+#endif
 
             template<typename ResultType_>
             class Task
@@ -64,6 +170,61 @@ namespace YY
                 {
                     return pAsyncOperation->GetResult();
                 }
+
+#if defined(_HAS_CXX20) && _HAS_CXX20
+                TaskCoAwaiter<ResultType> __YYAPI operator co_await() const
+                {
+                    class TaskCoAwaiter: protected AsyncOperationCompletedHandler<ResultType>
+                    {
+                    private:
+                        YY::RefPtr<AsyncOperation<ResultType>> pAsyncOperation;
+                        YY::WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
+                        std::coroutine_handle<> hCoroutine;
+
+                    public:
+                        TaskCoAwaiter(YY::RefPtr<AsyncOperation<ResultType>> _pAsyncOperation) noexcept
+                            : pAsyncOperation(std::move(_pAsyncOperation))
+                            , pResumeTaskRunnerWeak(YY::TaskRunner::GetCurrent())
+                        {
+                        }
+
+                        bool await_ready() const noexcept
+                        {
+                            return pAsyncOperation->GetStatus() != AsyncStatus::Started;
+                        }
+
+                        bool await_suspend(std::coroutine_handle<> _hCoroutine) noexcept
+                        {
+                            hCoroutine = _hCoroutine;
+                            if (!pAsyncOperation->AddCompletedHandler(this))
+                            {
+                                return false;
+                            }
+                            return true;
+                        }
+
+                        ResultType_ await_resume()
+                        {
+                            return pAsyncOperation->GetResult();
+                        }
+
+                        void __YYAPI OnCompleted(AsyncOperation<ResultType_>* _pAsyncInfo, AsyncStatus _eStatus) override
+                        {
+                            UNREFERENCED_PARAMETER(_pAsyncInfo);
+                            UNREFERENCED_PARAMETER(_eStatus);
+                            if (pResumeTaskRunnerWeak == nullptr)
+                            {
+                                if (hCoroutine)
+                                {
+                                    hCoroutine.resume();
+                                }
+                            }
+                        }
+                    };
+
+                    return TaskCoAwaiter<ResultType>(pAsyncOperation);
+                }
+#endif
 
                 template<typename ContinueCallback, typename ContinueResultType_ = typename FunctionTraits<ContinueCallback>::ReturnType>
                 Task<ContinueResultType_> __YYAPI Then(_In_ TaskRunner* _pResumeTaskRunner, _In_ ContinueCallback&& pfnTaskCallback)
