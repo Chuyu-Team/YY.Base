@@ -36,6 +36,31 @@ namespace YY
             template <typename T>
             struct FunctionTraits;
 
+            template <typename T>
+            struct FunctionTraits<T&> : FunctionTraits<T>
+            {
+            };
+
+            template <typename T>
+            struct FunctionTraits<T&&> : FunctionTraits<T>
+            {
+            };
+
+            template <typename T>
+            struct FunctionTraits<const T> : FunctionTraits<T>
+            {
+            };
+
+            template <typename T>
+            struct FunctionTraits<volatile T> : FunctionTraits<T>
+            {
+            };
+
+            template <typename T>
+            struct FunctionTraits<const volatile T> : FunctionTraits<T>
+            {
+            };
+
             template <typename _ReturnType, typename... _Parameters>
             struct FunctionTraits<_ReturnType(_Parameters...)>
             {
@@ -134,6 +159,11 @@ namespace YY
             __APPLY_FUNCTION_TRAITS(noexcept)
             __APPLY_CLASS_FUNCTION_TRAITS(noexcept)
 #endif // defined(__cpp_noexcept_function_type) && __cpp_noexcept_function_type >= 201510L
+
+            template <typename T>
+            struct FunctionTraits : FunctionTraits<decltype(&std::remove_reference<T>::type::operator())>
+            {
+            };
 
         } // namespace Functional
     } // namespace Base
