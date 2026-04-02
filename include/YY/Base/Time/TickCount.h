@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <algorithm>
+
 #include <YY/Base/YY.h>
 #include <YY/Base/Time/Common.h>
 #include <YY/Base/Time/TimeSpan.h>
@@ -233,13 +235,16 @@ namespace YY
 
                 constexpr TimeSpan operator-(const TickCount& _oOther) const noexcept
                 {
-                    int64_t _nSpanInternal = uTicks - _oOther.uTicks;
-                    // return TimeSpan::FromTicks(_nSpanInternal * TimeSpan::GetTicksPerSecond() / int64_t(GetTicksPerSecond()));
-                    return TimeSpan::FromTicks(MulDiv64Fast(_nSpanInternal, TimeSpan::GetTicksPerSecond(), GetTicksPerSecond()));
+                    const bool neg = uTicks < _oOther.uTicks;
+                    const auto _uTimeDiffTicks = (std::min)(UMulDiv64Fast(neg ? (_oOther.uTicks - uTicks) : (uTicks - _oOther.uTicks), TimeSpan::GetTicksPerSecond(), GetTicksPerSecond()), uint64_t(TimeSpan::GetMax().GetTicks()));
+
+                    return neg ? TimeSpan::FromTicks(-int64_t(_uTimeDiffTicks)) : TimeSpan::FromTicks(int64_t(_uTimeDiffTicks));
                 }
             };
         }
     }
+
+    using namespace YY::Base::Time;
 }
 
 #pragma pack(pop)
