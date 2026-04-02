@@ -44,69 +44,6 @@ namespace YY
                 HANDLE hFile = INVALID_HANDLE_VALUE;
                 bool bSkipCompletionNotificationOnSuccess = false;
 
-                struct AsyncReadWriteTask : public IoTaskEntry
-                {
-                    std::function<void(LSTATUS _lStatus, uint32_t _cbReadOrWrite)> pfnResultCallback;
-
-                    HRESULT __YYAPI RunTask() override
-                    {
-                        try
-                        {
-                            pfnResultCallback(lStatus, uint32_t(InternalHigh));
-                        }
-                        catch (const YY::OperationCanceledException&)
-                        {
-                            return YY::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                        }
-
-                        return S_OK;
-                    }
-                };
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                struct CoroutineReadWriteTask
-                    : public IoTaskEntry
-                    , public TaskAwaiter<uint32_t>::RefData
-                {
-                private:
-                    CoroutineReadWriteTask(bool)
-                    {
-                        oCoroutineInfo.hCoroutineHandle = -1;
-                        lStatus = ERROR_OUTOFMEMORY;
-                    }
-
-                public:
-                    CoroutineReadWriteTask() = default;
-
-                    HRESULT __YYAPI RunTask() override
-                    {
-                        return Resume();
-                    }
-
-                    uint32_t __YYAPI AddRef() noexcept override
-                    {
-                        return IoTaskEntry::AddRef();
-                    }
-
-                    uint32_t __YYAPI Release() noexcept override
-                    {
-                        return IoTaskEntry::Release();
-                    }
-
-                    uint32_t __YYAPI GetResult() noexcept override
-                    {
-                        SetLastError(lStatus);
-                        return uint32_t(InternalHigh);
-                    }
-
-                    static RefPtr<CoroutineReadWriteTask> __YYAPI GetOutofMemoryObject() noexcept
-                    {
-                        static CoroutineReadWriteTask s_OutofMemoryObject(true);
-                        return RefPtr<CoroutineReadWriteTask>(&s_OutofMemoryObject);
-                    }
-                };
-#endif
-
                 constexpr AsyncFile(HANDLE _hFile) noexcept
                     : hFile(_hFile)
                 {
@@ -193,6 +130,33 @@ namespace YY
                 /// <param name="_uOffset">读取文件的偏移。</param>
                 /// <param name="_pBuffer">输入缓冲区。请确保读取期间，_pBuffer处于有效状态。</param>
                 /// <param name="_cbBufferToRead">要读取的最大字节数。</param>
+                /// <returns>返回实际读取的字节数。
+                /// 如果实际读取字节数为 0，那么请额外检查 GetLastError()。</returns>
+                Task<uint32_t> __YYAPI ReadAsync(
+                    _In_ uint64_t _uOffset,
+                    _Out_writes_bytes_(_cbBufferToRead) void* _pBuffer,
+                    _In_ uint32_t _cbBufferToRead) noexcept;
+
+                /// <summary>
+                /// 异步写入文件。
+                /// </summary>
+                /// <param name="_uOffset">写入文件的偏移。</param>
+                /// <param name="_pBuffer">需要写入的数据缓冲区。</param>
+                /// <param name="_cbBufferToWrite">要写入的字节数</param>
+                /// <returns>返回实际写入的字节数。
+                /// 如果实际写入字节数为 0，那么请额外检查 GetLastError()。
+                /// </returns>
+                Task<uint32_t> __YYAPI WriteAsync(
+                    _In_ uint64_t _uOffset,
+                    _In_reads_bytes_(_cbBufferToWrite) const void* _pBuffer,
+                    _In_ uint32_t _cbBufferToWrite) noexcept;
+
+                /// <summary>
+                /// 异步读取文件。
+                /// </summary>
+                /// <param name="_uOffset">读取文件的偏移。</param>
+                /// <param name="_pBuffer">输入缓冲区。请确保读取期间，_pBuffer处于有效状态。</param>
+                /// <param name="_cbBufferToRead">要读取的最大字节数。</param>
                 /// <param name="_pfnResultCallback">异步完成后，执行的回调。回调保证恢复调用AsyncRead时的线程上下文。
                 ///   _lStatus : 操作返回代码，如果返回 ERROR_SUCCESS，那么代表成功。
                 ///   _cbRead : 实际读取成功的字节数。
@@ -201,20 +165,33 @@ namespace YY
                 /// ERROR_SUCCESS: 读取成功，但是数据尚未就绪，需要等待 _pfnResultCallback 完成。
                 /// 其他值：失败。
                 /// </returns>
+                __declspec(deprecated("已经废弃，建议直接使用ReadAsync。"))
                 LSTATUS __YYAPI AsyncRead(
                     _In_ uint64_t _uOffset,
                     _In_reads_bytes_(_cbBufferToRead) void* _pBuffer,
                     _In_ uint32_t _cbBufferToRead,
                     _In_ std::function<void(LSTATUS _lStatus, uint32_t _cbRead)> _pfnResultCallback) noexcept
                 {
+                    auto _oTask = ReadAsync(_uOffset, _pBuffer, _cbBufferToRead);
+                    switch (_oTask.GetStatus())
+                    {
+                    case AsyncStatus::Canceled:
+                        return ERROR_CANCELLED;
+                    case AsyncStatus::Completed:
+                        _pfnResultCallback(ERROR_SUCCESS, _oTask.GetResult());
+                        return ERROR_SUCCESS;
+                    case AsyncStatus::Error:
+                        return HRESULT_CODE(_oTask.GetErrorCode());
+                    default:
+                        _oTask.Then([_pfnResultCallback = std::move(_pfnResultCallback)](uint32_t _cbRead) mutable
+                            {
+                                const auto _lStatus = _cbRead == 0 ? GetLastError() : ERROR_SUCCESS;
+                                _pfnResultCallback(_lStatus, _cbRead);
+                            });
 
-                    auto _pAsyncTask = RefPtr<AsyncReadWriteTask>::Create();
-                    if (!_pAsyncTask)
-                        return ERROR_OUTOFMEMORY;
-
-                    _pAsyncTask->pfnResultCallback = std::move(_pfnResultCallback);
-
-                    return AsyncReadInternal(_uOffset, _pBuffer, _cbBufferToRead, std::move(_pAsyncTask));
+                        return ERROR_SUCCESS;
+                        break;
+                    }
                 }
 
                 /// <summary>
@@ -231,179 +208,33 @@ namespace YY
                 /// ERROR_SUCCESS: 读取成功，但是数据尚未就绪，需要等待 _pfnResultCallback 完成。
                 /// 其他值：失败。
                 /// </returns>
+                __declspec(deprecated("已经废弃，建议直接使用WriteAsync。"))
                 LSTATUS __YYAPI AsyncWrite(
                     _In_ uint64_t _uOffset,
                     _In_reads_bytes_(_cbBufferToWrite) const void* _pBuffer,
                     _In_ uint32_t _cbBufferToWrite,
                     _In_ std::function<void(LSTATUS _lStatus, uint32_t _cbWrite)> _pfnResultCallback) noexcept
                 {
-                    auto _pAsyncTask = RefPtr<AsyncReadWriteTask>::Create();
-                    if (!_pAsyncTask)
-                        return ERROR_OUTOFMEMORY;
-
-                    _pAsyncTask->pfnResultCallback = std::move(_pfnResultCallback);
-                    return AsyncWriteInternal(_uOffset, _pBuffer, _cbBufferToWrite, std::move(_pAsyncTask));
-                }
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                /// <summary>
-                /// 以协程方式异步读取文件。
-                /// </summary>
-                /// <param name="_uOffset">读取文件的偏移。</param>
-                /// <param name="_pBuffer">输入缓冲区。请确保读取期间，_pBuffer处于有效状态。</param>
-                /// <param name="_cbBufferToRead">要读取的最大字节数。</param>
-                /// <returns>返回实际读取的字节数。
-                /// 如果实际读取字节数为 0，那么请额外检查 GetLastError()。</returns>
-                TaskAwaiter<uint32_t> __YYAPI AsyncRead(
-                    _In_ uint64_t _uOffset,
-                    _Out_writes_bytes_(_cbBufferToRead) void* _pBuffer,
-                    _In_ uint32_t _cbBufferToRead) noexcept
-                {
-                    auto _pAsyncTaskEntry = RefPtr<CoroutineReadWriteTask>::Create();
-                    if (_pAsyncTaskEntry)
+                    auto _oTask = WriteAsync(_uOffset, _pBuffer, _cbBufferToWrite);
+                    
+                    switch (_oTask.GetStatus())
                     {
-                        auto _lStatus = AsyncReadInternal(_uOffset, _pBuffer, _cbBufferToRead, _pAsyncTaskEntry);
-                        if (_lStatus != ERROR_SUCCESS)
-                        {
-                            // 失败时，异步任务不会在触发了。也算是一种任务完成。
-                            _pAsyncTaskEntry->Resume();
-                        }
-                    }
-                    else
-                    {
-                        _pAsyncTaskEntry = CoroutineReadWriteTask::GetOutofMemoryObject();
-                    }
-
-                    return TaskAwaiter<uint32_t>(std::move(_pAsyncTaskEntry));
-                }
-#endif        
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                /// <summary>
-                /// 以协程方式异步写入文件。
-                /// </summary>
-                /// <param name="_uOffset">写入文件的偏移。</param>
-                /// <param name="_pBuffer">需要写入的数据缓冲区。</param>
-                /// <param name="_cbBufferToWrite">要写入的字节数</param>
-                /// <returns>返回实际写入的字节数。
-                /// 如果实际写入字节数为 0，那么请额外检查 GetLastError()。
-                /// </returns>
-                TaskAwaiter<uint32_t> __YYAPI AsyncWrite(
-                    _In_ uint64_t _uOffset,
-                    _In_reads_bytes_(_cbBufferToWrite) const void* _pBuffer,
-                    _In_ uint32_t _cbBufferToWrite) noexcept
-                {
-                    auto _pAsyncTaskEntry = RefPtr<CoroutineReadWriteTask>::Create();
-                    if (_pAsyncTaskEntry)
-                    {
-                        auto _lStatus = AsyncWriteInternal(_uOffset, _pBuffer, _cbBufferToWrite, _pAsyncTaskEntry);
-                        if (_lStatus != ERROR_SUCCESS)
-                        {
-                            // 失败时，异步任务不会在触发了。也算是一种任务完成。
-                            _pAsyncTaskEntry->Resume();
-                        }
-                    }
-                    else
-                    {
-                        _pAsyncTaskEntry = CoroutineReadWriteTask::GetOutofMemoryObject();
-                    }
-
-                    return TaskAwaiter<uint32_t>(std::move(_pAsyncTaskEntry));
-                }
-#endif
-
-            protected:
-                LSTATUS __YYAPI AsyncReadInternal(
-                    _In_ uint64_t _uOffset,
-                    _In_reads_bytes_(_cbBuffer) void* _pBuffer,
-                    _In_ uint32_t _cbBuffer,
-                    _In_ RefPtr<IoTaskEntry> _pIoTask) noexcept
-                {
-                    _pIoTask->pOwnerTaskRunnerWeak = TaskRunner::GetCurrent();
-                    _pIoTask->Offset = (uint32_t)_uOffset;
-                    _pIoTask->OffsetHigh = (uint32_t)(_uOffset >> 32);
-
-                    if (ReadFile(hFile, _pBuffer, _cbBuffer, nullptr, _pIoTask.Clone()))
-                    {
-                        // 读取成功
-                        if (_pIoTask->OnComplete(ERROR_SUCCESS))
-                        {
-                            _pIoTask->operator()();
-                        }
-
-                        if (bSkipCompletionNotificationOnSuccess)
-                        {
-                            _pIoTask.Get()->Release();
-                        }
-                        else
-                        {
-                            TaskRunner::StartIo();
-                        }
+                    case AsyncStatus::Canceled:
+                        return ERROR_CANCELLED;
+                    case AsyncStatus::Completed:
+                        _pfnResultCallback(ERROR_SUCCESS, _oTask.GetResult());
                         return ERROR_SUCCESS;
-                    }
-                    else
-                    {
-                        const auto _lStatus = GetLastError();
-                        if (_lStatus == ERROR_IO_PENDING)
-                        {
-                            // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
-                            TaskRunner::StartIo();
-                            return ERROR_SUCCESS;
-                        }
-                        else
-                        {
-                            // 失败！
-                            _pIoTask->OnComplete(_lStatus);
-                            _pIoTask.Get()->Release();
-                            return _lStatus;
-                        }
-                    }
-                }
+                    case AsyncStatus::Error:
+                        return HRESULT_CODE(_oTask.GetErrorCode());
+                    default:
+                        _oTask.Then([_pfnResultCallback = std::move(_pfnResultCallback)](uint32_t _cbWrite) mutable
+                            {
+                                const auto _lStatus = _cbWrite == 0 ? GetLastError() : ERROR_SUCCESS;
+                                _pfnResultCallback(_lStatus, _cbWrite);
+                            });
 
-                LSTATUS __YYAPI AsyncWriteInternal(
-                    _In_ uint64_t _uOffset,
-                    _In_reads_bytes_(_cbBuffer) const void* _pBuffer,
-                    _In_ uint32_t _cbBuffer,
-                    _In_ RefPtr<IoTaskEntry> _pIoTask) noexcept
-                {
-                    _pIoTask->pOwnerTaskRunnerWeak = TaskRunner::GetCurrent();
-                    _pIoTask->Offset = (uint32_t)_uOffset;
-                    _pIoTask->OffsetHigh = (uint32_t)(_uOffset >> 32);
-
-                    if (WriteFile(hFile, _pBuffer, _cbBuffer, nullptr, _pIoTask.Clone()))
-                    {
-                        // 读取成功
-                        if (_pIoTask->OnComplete(ERROR_SUCCESS))
-                        {
-                            _pIoTask->operator()();
-                        }
-
-                        if (bSkipCompletionNotificationOnSuccess)
-                        {
-                            _pIoTask.Get()->Release();
-                        }
-                        else
-                        {
-                            TaskRunner::StartIo();
-                        }
                         return ERROR_SUCCESS;
-                    }
-                    else
-                    {
-                        const auto _lStatus = GetLastError();
-                        if (_lStatus == ERROR_IO_PENDING)
-                        {
-                            // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
-                            TaskRunner::StartIo();
-                            return ERROR_SUCCESS;
-                        }
-                        else
-                        {
-                            // 失败！
-                            _pIoTask->OnComplete(_lStatus);
-                            _pIoTask.Get()->Release();
-                            return _lStatus;
-                        }
+                        break;
                     }
                 }
             };
@@ -479,6 +310,12 @@ namespace YY
                 /// <summary>
                 /// 异步链接管道。
                 /// </summary>
+                /// <returns>一个任务对象,表示异步操作,完成时返回操作的状态码。</returns>
+                Task<LSTATUS> __YYAPI ConnectAsync();
+
+                /// <summary>
+                /// 异步链接管道。
+                /// </summary>
                 /// <param name="_pfnResultCallback">异步完成后，执行的回调。回调保证恢复调用AsyncConnect时的线程上下文。
                 ///     _lStatus: 管道链接的错误代码，ERROR_SUCCESS代表成功。
                 /// </param>
@@ -486,135 +323,27 @@ namespace YY
                 /// ERROR_SUCCESS: 读取成功，但是数据尚未就绪，需要等待 _pfnResultCallback 完成。
                 /// 其他值：失败。
                 /// </returns>
+                __declspec(deprecated("已经废弃，建议直接使用ConnectAsync。"))
                 LSTATUS __YYAPI AsyncConnect(_In_ std::function<void(LSTATUS _lStatus)> _pfnResultCallback) noexcept
                 {
-                    struct AsyncConnectTask : public IoTaskEntry
+                    auto _oTask = ConnectAsync();
+                    switch (_oTask.GetStatus())
                     {
-                        std::function<void(LSTATUS _lStatus)> pfnResultCallback;
-
-                        HRESULT __YYAPI RunTask() override
-                        {
-                            try
-                            {
-                                pfnResultCallback(lStatus);
-                            }
-                            catch (const YY::OperationCanceledException&)
-                            {
-                                return YY::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                            }
-
-                            return S_OK;
-                        }
-                    };
-
-                    auto _pAsyncTask = RefPtr<AsyncConnectTask>::Create();
-                    if (!_pAsyncTask)
-                        return ERROR_OUTOFMEMORY;
-
-                    _pAsyncTask->pfnResultCallback = std::move(_pfnResultCallback);
-                    return AsyncConnectIntetnal(std::move(_pAsyncTask));
-                }
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                TaskAwaiter<LSTATUS> AsyncConnect()
-                {
-                    struct CoroutineConnectTask
-                        : public IoTaskEntry
-                        , public TaskAwaiter<LSTATUS>::RefData
-                    {
-                    private:
-                        CoroutineConnectTask(bool)
-                        {
-                            oCoroutineInfo.hCoroutineHandle = -1;
-                            lStatus = ERROR_OUTOFMEMORY;
-                        }
-
-                    public:
-                        CoroutineConnectTask() = default;
-
-                        HRESULT __YYAPI RunTask() override
-                        {
-                            return Resume();
-                        }
-
-                        uint32_t __YYAPI AddRef() noexcept override
-                        {
-                            return IoTaskEntry::AddRef();
-                        }
-
-                        uint32_t __YYAPI Release() noexcept override
-                        {
-                            return IoTaskEntry::Release();
-                        }
-
-                        LSTATUS __YYAPI GetResult() noexcept override
-                        {
-                            return lStatus;
-                        }
-
-                        static RefPtr<CoroutineConnectTask> __YYAPI GetOutofMemoryObject() noexcept
-                        {
-                            static CoroutineConnectTask s_OutofMemoryObject(true);
-                            return RefPtr<CoroutineConnectTask>(&s_OutofMemoryObject);
-                        }
-                    };
-
-                    auto _pConnectTask = RefPtr<CoroutineConnectTask>::Create();
-                    if (_pConnectTask)
-                    {
-                        auto _lStatus = AsyncConnectIntetnal(_pConnectTask);
-                        if (_lStatus != ERROR_SUCCESS)
-                        {
-                            _pConnectTask->Resume();
-                        }
-                    }
-                    else
-                    {
-                        _pConnectTask = CoroutineConnectTask::GetOutofMemoryObject();
-                    }
-
-                    return TaskAwaiter<LSTATUS>(std::move(_pConnectTask));
-                }
-#endif
-
-            protected:
-                LSTATUS __YYAPI AsyncConnectIntetnal(RefPtr<IoTaskEntry> _pIoTask) noexcept
-                {
-                    _pIoTask->pOwnerTaskRunnerWeak = TaskRunner::GetCurrent();
-                    auto _bSuccess = ConnectNamedPipe(hFile, _pIoTask.Clone());
-                    if (_bSuccess)
-                    {
-                        if (_pIoTask->OnComplete(ERROR_SUCCESS))
-                        {
-                            _pIoTask->operator()();
-                        }
-
-                        if (bSkipCompletionNotificationOnSuccess)
-                        {
-                            _pIoTask.Get()->Release();
-                        }
-                        else
-                        {
-                            TaskRunner::StartIo();
-                        }
+                    case AsyncStatus::Canceled:
+                        return ERROR_CANCELLED;
+                    case AsyncStatus::Completed:
+                        _pfnResultCallback(_oTask.GetResult());
                         return ERROR_SUCCESS;
-                    }
-                    else
-                    {
-                        const auto _lStatus = GetLastError();
-                        if (_lStatus == ERROR_IO_PENDING)
-                        {
-                            // 进入异步读取模式，唤醒一下 Dispatch，IO完成后Dispatch自动会将任务重新转发到调用者
-                            TaskRunner::StartIo();
-                            return ERROR_SUCCESS;
-                        }
-                        else
-                        {
-                            // 失败！
-                            _pIoTask->OnComplete(_lStatus);
-                            _pIoTask.Get()->Release();
-                            return _lStatus;
-                        }
+                    case AsyncStatus::Error:
+                        return HRESULT_CODE(_oTask.GetErrorCode());
+                    default:
+                        _oTask.Then([_pfnResultCallback = std::move(_pfnResultCallback)](LSTATUS _lStatus) mutable
+                            {
+                                _pfnResultCallback(_lStatus);
+                            });
+
+                        return ERROR_SUCCESS;
+                        break;
                     }
                 }
             };

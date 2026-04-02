@@ -1,0 +1,520 @@
+﻿#include <YY/Base/YY.h>
+#include <YY/Base/Memory/RefPtr.h>
+#include <YY/Base/Time/TimeSpan.h>
+#include <YY/Base/Containers/DoublyLinkedList.h>
+#include <YY/Base/Sync/SRWLock.h>
+#include <YY/Base/Sync/AutoLock.h>
+#include <YY/Base/Containers/Optional.h>
+
+#pragma pack(push, __YY_PACKING)
+
+namespace YY
+{
+    namespace Base
+    {
+        namespace Threading
+        {
+            enum class AsyncStatus : uint32_t
+            {
+                // 操作已启动。
+                Started,
+                // 操作已完成。
+                Completed,
+                // 该操作已取消。
+                Canceled,
+                // 操作遇到错误。通过GetErrorCode可以获取详细的错误信息。
+                Error,
+            };
+
+            template<typename DelegateHandle>
+            class Delegate
+            {
+            protected:
+                YY::DoublyLinkedList<DelegateHandle> oDelegateHandleList;
+
+            public:
+                constexpr Delegate() = default;
+
+                constexpr Delegate(Delegate&& _oOther) noexcept
+                    : oDelegateHandleList(_oOther.oDelegateHandleList.Flush())
+                {
+                }
+
+                Delegate(const Delegate&) = delete;
+                Delegate& operator=(const Delegate&) = delete;
+
+                bool __YYAPI AddHandler(DelegateHandle* _pHandle)
+                {
+                    if (!_pHandle)
+                    {
+                        return false;
+                    }
+
+                    if(_pHandle->pPrior != nullptr || _pHandle->pNext != nullptr)
+                    {
+                        // 已经在链表中！！！
+                        return false;
+                    }
+
+                    oDelegateHandleList.PushBack(_pHandle);
+                    return true;
+                }
+
+                bool __YYAPI RemoveHandler(DelegateHandle* _pHandle)
+                {
+                    if (!_pHandle)
+                        return false;
+
+                    if (_pHandle->pPrior == nullptr)
+                    {
+                        // 头节点
+                        if (oDelegateHandleList.GetFirst() == _pHandle)
+                        {
+                            oDelegateHandleList.Remove(_pHandle);
+                            return true;
+                        }
+                    }
+                    else if (_pHandle->pNext == nullptr)
+                    {
+                        // 尾节点
+                        if (oDelegateHandleList.GetLast() == _pHandle)
+                        {
+                            oDelegateHandleList.Remove(_pHandle);
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        // 中间节点，检查是否在链表中
+                        for (auto _pEntry = oDelegateHandleList.GetFirst(); _pEntry != nullptr; _pEntry = _pEntry->pNext)
+                        {
+                            if (_pEntry == _pHandle)
+                            {
+                                oDelegateHandleList.Remove(_pHandle);
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+                }
+
+                Delegate& __YYAPI operator+=(Delegate&& _oOther)
+                {
+                    oDelegateHandleList.PushBack(_oOther.oDelegateHandleList.Flush());
+                    return *this;
+                }
+
+                Delegate& __YYAPI operator+=(DelegateHandle* _pHandle)
+                {
+                    AddHandler(_pHandle);
+                    return *this;
+                }
+
+                Delegate& __YYAPI operator-=(DelegateHandle* _pHandle)
+                {
+                    RemoveHandler(_pHandle);
+                    return *this;
+                }
+
+                template<typename... Args>
+                void __YYAPI InvokeCompletedHandlers(Args&&... _args)
+                {
+                    while (auto _pEntry = oDelegateHandleList.PopFront())
+                    {
+                        _pEntry->OnCompleted(std::forward<Args>(_args)...);
+                    }
+                }
+            };
+
+            class AsyncInfo : public YY::RefValue
+            {
+            protected:
+                volatile HRESULT hr = E_PENDING;
+                volatile AsyncStatus eStatus = AsyncStatus::Started;
+
+            public:
+                AsyncInfo() = default;
+
+                AsyncInfo(const AsyncInfo&) = delete;
+                AsyncInfo& operator=(const AsyncInfo&) = delete;
+
+                /// <summary>
+                /// 获取对象存储的错误代码。
+                /// </summary>
+                /// <returns>如果异步操作失败，则返回内部存储的错误代码（hr）；如果成功，则返回 S_OK。</returns>
+                HRESULT __YYAPI GetErrorCode() const noexcept
+                {
+                    return hr;
+                }
+
+                AsyncStatus __YYAPI GetStatus() const noexcept
+                {
+                    return eStatus;
+                }
+
+                /// <summary>
+                /// 取消异步操作。
+                /// </summary>
+                /// <returns></returns>
+                virtual bool __YYAPI Cancel()
+                {
+                    if (!BeginNotifyCompletedHandlers(AsyncStatus::Canceled))
+                    {
+                        return false;
+                    }
+
+                    NotifyCompletedHandlers(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                    return true;
+                }
+
+                bool IsCanceled()
+                {
+                    return GetStatus() == AsyncStatus::Canceled;
+                }
+
+                /// <summary>
+                /// 阻塞等待任务完成或直到达到指定超时时间（默认无限等待）。
+                /// </summary>
+                /// <param name="_oTimeout">最大等待时间，类型为 YY::TimeSpan。默认值为 YY::TimeSpan::GetMax()，表示无限期等待。</param>
+                /// <returns>如果在指定超时时间内等待成功（任务完成等）则返回 true；如果超时则返回 false。</returns>
+                bool __YYAPI WaitTask(YY::TimeSpan _oTimeout = YY::TimeSpan::GetMax())
+                {
+                    DWORD _uMilliseconds;
+                    auto _iTimeoutMilliseconds = _oTimeout.GetTotalMilliseconds();
+                    if (_iTimeoutMilliseconds <= 0)
+                    {
+                        _uMilliseconds = 0;
+                    }
+                    else if (_iTimeoutMilliseconds > UINT32_MAX)
+                    {
+                        _uMilliseconds = UINT32_MAX;
+                    }
+                    else
+                    {
+                        _uMilliseconds = (DWORD)_iTimeoutMilliseconds;
+                    }
+
+                    HRESULT _hrPending = E_PENDING;
+                    return WaitOnAddress(&hr, &_hrPending, sizeof(_hrPending), _uMilliseconds);
+                }
+
+                void __YYAPI ThrowIfWaitTaskFailed()
+                {
+                    if (!WaitTask())
+                    {
+                        throw YY::Exception(_S("等待异步任务WaitTask失败。"), E_FAIL);
+                    }
+
+                    switch (this->GetStatus())
+                    {
+                    case AsyncStatus::Completed:
+                        break;
+                    case AsyncStatus::Canceled:
+                        throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
+                        break;
+                    case AsyncStatus::Error:
+                        throw YY::Exception(this->GetErrorCode());
+                        break;
+                    default:
+                        throw YY::Exception(_S("异步任务状态不符合预期。"), E_FAIL);
+                        break;
+                    }
+                }
+
+            protected:
+                bool __YYAPI BeginNotifyCompletedHandlers(AsyncStatus _eStatus) noexcept
+                {
+                    if ((AsyncStatus)YY::Sync::CompareExchange(reinterpret_cast<volatile uint32_t*>(&eStatus), uint32_t(_eStatus), uint32_t(AsyncStatus::Started)) != AsyncStatus::Started)
+                    {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                bool __YYAPI SetErrorCode(HRESULT _hr)
+                {
+                    if ((AsyncStatus)YY::Sync::CompareExchange(reinterpret_cast<volatile uint32_t*>(&eStatus), uint32_t(AsyncStatus::Error), uint32_t(AsyncStatus::Started)) != AsyncStatus::Started)
+                    {
+                        return false;
+                    }
+
+                    if (_hr == E_PENDING || _hr == S_OK)
+                    {
+                        _hr = E_UNEXPECTED;
+                    }
+
+                    NotifyCompletedHandlers(_hr);
+                    return true;
+                }
+
+                virtual void __YYAPI NotifyCompletedHandlers(HRESULT _hr) = 0;
+            };
+
+            template<typename ResultType_>
+            class AsyncOperation;
+
+            template<typename ResultType_>
+            class AsyncOperationCompletedHandler : public DoublyLinkedListEntryImpl<AsyncOperationCompletedHandler<ResultType_>>
+            {
+            public:
+                using ResultType = ResultType_;
+
+                virtual void __YYAPI OnCompleted(AsyncOperation<ResultType>* _pAsyncInfo, AsyncStatus _eStatus) = 0;
+            };
+
+            template<typename ResultType_>
+            class AsyncOperation : public AsyncInfo
+            {
+            public:
+                using ResultType = ResultType_;
+                using AsyncOperationCompletedHandler = AsyncOperationCompletedHandler<ResultType>;
+                using Delegate = Delegate<AsyncOperationCompletedHandler>;
+
+            protected:
+                YY::SRWLock oSRWLock;
+                Delegate oCompletedDelegate;
+
+            public:
+                /// <summary>
+                /// 如果操作成功，则获取异步操作的结果。
+                /// </summary>
+                /// <returns>指向 ResultType 的引用，表示获取到的结果。</returns>
+                virtual ResultType& __YYAPI GetResult() = 0;
+
+                bool __YYAPI AddCompletedHandler(_In_ AsyncOperationCompletedHandler* _pHandler)
+                {
+                    if (!_pHandler)
+                    {
+                        return false;
+                    }
+                    
+                    YY::AutoLock<YY::SRWLock> _oAutoPushBackLock(oSRWLock);
+
+                    if (GetStatus() != AsyncStatus::Started)
+                    {
+                        return false;
+                    }
+
+                    return oCompletedDelegate.AddHandler(_pHandler);
+                }
+
+                bool __YYAPI RemoveCompletedHandler(_In_ AsyncOperationCompletedHandler* _pHandler)
+                {
+                    if (!_pHandler)
+                        return false;
+
+                    YY::AutoLock<YY::SRWLock> _oAutoRemoveLock(oSRWLock);
+                    return oCompletedDelegate.RemoveHandler(_pHandler);
+                }
+
+            protected:
+                void __YYAPI NotifyCompletedHandlers(HRESULT _hr) override
+                {
+                    hr = _hr;
+                    WakeByAddressAll((PVOID)&hr);
+                    Delegate _oCompletedDelegate;
+                    {
+                        YY::AutoLock<YY::SRWLock> _oAutoSwapLock(oSRWLock);
+                        _oCompletedDelegate += std::move(oCompletedDelegate);
+                    }
+
+                    _oCompletedDelegate.InvokeCompletedHandlers(this, GetStatus());
+                }
+            };
+
+            template<>
+            class AsyncOperation<void> : public AsyncInfo
+            {
+            public:
+                using ResultType = void;
+                using AsyncOperationCompletedHandler = AsyncOperationCompletedHandler<ResultType>;
+                using Delegate = Delegate<AsyncOperationCompletedHandler>;
+
+            protected:
+                YY::SRWLock oSRWLock;
+                Delegate oCompletedDelegate;
+
+            public:
+                /// <summary>
+                /// 如果操作成功，则获取异步操作的结果。
+                /// </summary>
+                /// <returns>指向 ResultType 的引用，表示获取到的结果。</returns>
+                virtual void __YYAPI GetResult() = 0;
+
+                bool __YYAPI AddCompletedHandler(_In_ AsyncOperationCompletedHandler* _pHandler)
+                {
+                    if (!_pHandler)
+                    {
+                        return false;
+                    }
+
+                    YY::AutoLock<YY::SRWLock> _oAutoPushBackLock(oSRWLock);
+
+                    if (GetStatus() != AsyncStatus::Started)
+                    {
+                        return false;
+                    }
+
+                    return oCompletedDelegate.AddHandler(_pHandler);
+                }
+
+                bool __YYAPI RemoveCompletedHandler(_In_ AsyncOperationCompletedHandler* _pHandler)
+                {
+                    if (!_pHandler)
+                        return false;
+
+                    YY::AutoLock<YY::SRWLock> _oAutoRemoveLock(oSRWLock);
+                    return oCompletedDelegate.RemoveHandler(_pHandler);
+                }
+
+            protected:
+                void __YYAPI NotifyCompletedHandlers(HRESULT _hr) override
+                {
+                    hr = _hr;
+                    WakeByAddressAll((PVOID)&hr);
+                    Delegate _oCompletedDelegate;
+                    {
+                        YY::AutoLock<YY::SRWLock> _oAutoSwapLock(oSRWLock);
+                        _oCompletedDelegate += std::move(oCompletedDelegate);
+                    }
+
+                    _oCompletedDelegate.InvokeCompletedHandlers(this, GetStatus());
+                }
+            };
+
+            template<typename ResultType_>
+            class AsyncOperationImpl : public AsyncOperation<ResultType_>
+            {
+            public:
+                using ResultType = ResultType_;
+                using AsyncOperationCompletedHandler = typename AsyncOperation<ResultType>::AsyncOperationCompletedHandler;
+                using Delegate = typename AsyncOperation<ResultType>::Delegate;
+
+            protected:
+                union
+                {
+                    char oResultBuffer[sizeof(ResultType)] = {};
+                    ResultType oResult;
+                };
+
+            public:
+                ~AsyncOperationImpl()
+                {
+                    if (AsyncOperation<ResultType>::GetStatus() == AsyncStatus::Completed)
+                    {
+                        oResult.~ResultType();
+                    }
+                }
+
+                ResultType& __YYAPI GetResult() override
+                {
+                    AsyncOperation<ResultType>::ThrowIfWaitTaskFailed();
+                    return oResult;
+                }
+
+                bool __YYAPI Resolve(const ResultType& _oResult)
+                {
+                    if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    new (oResultBuffer) ResultType(_oResult);
+
+                    AsyncOperation<ResultType>::NotifyCompletedHandlers(S_OK);
+                    return true;
+                }
+
+                bool __YYAPI Resolve(ResultType&& _oResult)
+                {
+                    if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    new (oResultBuffer) ResultType(std::move(_oResult));
+                    AsyncOperation<ResultType>::NotifyCompletedHandlers(S_OK);
+                    return true;
+                }
+
+                bool __YYAPI SetErrorCode(HRESULT _hr)
+                {
+                    return AsyncOperation<ResultType>::SetErrorCode(_hr);
+                }
+            };
+
+            template<>
+            class AsyncOperationImpl<void> : public AsyncOperation<void>
+            {
+            public:
+                using ResultType = void;
+                using AsyncOperationCompletedHandler = typename AsyncOperation<ResultType>::AsyncOperationCompletedHandler;
+                using Delegate = typename AsyncOperation<ResultType>::Delegate;
+
+            private:
+
+            public:
+                void __YYAPI GetResult() override
+                {
+                    AsyncOperation<ResultType>::ThrowIfWaitTaskFailed();
+                    return;
+                }
+
+                bool __YYAPI Resolve(void)
+                {
+                    if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    AsyncOperation<ResultType>::NotifyCompletedHandlers(S_OK);
+                    return true;
+                }
+
+                bool __YYAPI SetErrorCode(HRESULT _hr)
+                {
+                    return AsyncOperation<ResultType>::SetErrorCode(_hr);
+                }
+            };
+
+            template<typename ResultType_>
+            class IoAsyncOperation
+                : public AsyncOperation<ResultType_>
+                , public OVERLAPPED
+            {
+            public:
+                using ResultType = ResultType_;
+
+                LSTATUS lStatus = ERROR_IO_PENDING;
+
+                IoAsyncOperation()
+                    : OVERLAPPED{}
+                {
+                }
+
+                bool __YYAPI Resolve(LSTATUS _lStatus)
+                {
+                    if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
+                    {
+                        return false;
+                    }
+
+                    lStatus = _lStatus;
+                    AsyncOperation<ResultType>::NotifyCompletedHandlers(S_OK);
+                    return true;
+                }
+
+                bool __YYAPI SetErrorCode(HRESULT _hr)
+                {
+                    return AsyncOperation<ResultType>::SetErrorCode(_hr);
+                }
+            };
+        }
+    }
+
+    using namespace YY::Base::Threading;
+}
+
+#pragma pack(pop)

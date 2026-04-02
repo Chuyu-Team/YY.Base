@@ -337,6 +337,13 @@ namespace YY
                 return BitReset(const_cast<volatile int64_t*>(_pBase), _uOffset);
             }
 
+            /// <summary>
+            /// 原子地比较并交换一个32位整数值。
+            /// </summary>
+            /// <param name="_pDestination">指向要比较和交换的目标值的指针。</param>
+            /// <param name="_iExchange">如果比较成功，要设置的新值。</param>
+            /// <param name="_iComparand">要与目标值进行比较的值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline int32_t __YYAPI CompareExchange(volatile int32_t* _pDestination, int32_t _iExchange, int32_t _iComparand)
             {
 #ifdef _MSC_VER
@@ -346,32 +353,74 @@ namespace YY
 #endif
             }
 
+            /// <summary>
+            /// 执行原子比较和交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向目标值的指针。</param>
+            /// <param name="_iExchange">如果比较成功，要设置的交换值。</param>
+            /// <param name="_iComparand">用于比较的值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline int32_t __YYAPI CompareExchange(int32_t* _pDestination, int32_t _iExchange, int32_t _iComparand)
             {
                 return CompareExchange(const_cast<volatile int32_t*>(_pDestination), _iExchange, _iComparand);
             }
 
+            /// <summary>
+            /// 执行原子比较并交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向目标值的指针。</param>
+            /// <param name="_iExchange">要交换的新值。</param>
+            /// <param name="_iComparand">用于比较的期望值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline uint32_t __YYAPI CompareExchange(volatile uint32_t* _pDestination, uint32_t _iExchange, uint32_t _iComparand)
             {
                 return (uint32_t)CompareExchange(reinterpret_cast<volatile int32_t*>(_pDestination), (int32_t)_iExchange, (int32_t)_iComparand);
             }
 
+            /// <summary>
+            /// 执行原子比较并交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向要修改的目标内存位置的指针。</param>
+            /// <param name="_iExchange">如果比较成功,要设置的新值。</param>
+            /// <param name="_iComparand">用于比较的预期值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline uint32_t __YYAPI CompareExchange(uint32_t* _pDestination, uint32_t _iExchange, uint32_t _iComparand)
             {
                 return CompareExchange(const_cast<volatile uint32_t*>(_pDestination), _iExchange, _iComparand);
             }
 
+            /// <summary>
+            /// 执行原子比较并交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向要比较和可能交换的目标值的指针。</param>
+            /// <param name="_iExchange">如果比较成功时要写入的值。</param>
+            /// <param name="_iComparand">要与目标值进行比较的值。</param>
+            /// <returns>操作前目标位置的原始值。</returns>
             inline long __YYAPI CompareExchange(volatile long* _pDestination, long _iExchange, long _iComparand)
             {
                 static_assert(sizeof(long) == sizeof(int32_t), "");
                 return (long)CompareExchange(reinterpret_cast<volatile int32_t*>(_pDestination), (int32_t)_iExchange, (int32_t)_iComparand);
             }
 
+            /// <summary>
+            /// 执行原子比较并交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向目标值的指针。</param>
+            /// <param name="_iExchange">如果比较成功，要写入的交换值。</param>
+            /// <param name="_iComparand">与目标值进行比较的比较值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline long __YYAPI CompareExchange(long* _pDestination, long _iExchange, long _iComparand)
             {
                 return CompareExchange(const_cast<volatile long*>(_pDestination), _iExchange, _iComparand);
             }
 
+            /// <summary>
+            /// 执行原子比较并交换操作。
+            /// </summary>
+            /// <param name="_pDestination">指向目标值的指针。</param>
+            /// <param name="_iExchange">要交换的值。</param>
+            /// <param name="_iComparand">要比较的值。</param>
+            /// <returns>目标位置的原始值。</returns>
             inline int64_t __YYAPI CompareExchange(volatile int64_t* _pDestination, int64_t _iExchange, int64_t _iComparand)
             {
 #ifdef _MSC_VER

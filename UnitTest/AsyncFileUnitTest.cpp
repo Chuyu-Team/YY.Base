@@ -16,7 +16,7 @@ namespace UnitTest
     {
     public:
 #if defined(_HAS_CXX20) && _HAS_CXX20
-        static Coroutine<void> ReadFileCoroutine()
+        static Task<void> ReadFileCoroutine()
         {
             wchar_t _szFilePath[512] = {};
             GetModuleFileNameW((HMODULE)&__ImageBase, _szFilePath, std::size(_szFilePath));
@@ -28,7 +28,7 @@ namespace UnitTest
 
             std::string _szBuffer;
             _szBuffer.resize(_cbFile);
-            co_await _hFile.AsyncRead(0, _szBuffer.data(), _cbFile);
+            co_await _hFile.ReadAsync(0, _szBuffer.data(), _cbFile);
 
             co_return;
         }
@@ -55,13 +55,13 @@ namespace UnitTest
 
             std::string _szBufferAsyncReadFile;
 
-            auto pfnReadFile = [&]() ->Coroutine<void>
+            auto pfnReadFile = [&]() ->Task<void>
                 {
                     auto _cbFile = GetFileSize(_hFile.GetNativeHandle(), nullptr);
                     Assert::AreNotEqual(_cbFile, 0ul);
 
                     _szBufferAsyncReadFile.resize(_cbFile);
-                    auto _cbRead = co_await _hFile.AsyncRead(0, _szBufferAsyncReadFile.data(), _cbFile);
+                    auto _cbRead = co_await _hFile.ReadAsync(0, _szBufferAsyncReadFile.data(), _cbFile);
                     _szBufferAsyncReadFile.resize(_cbRead);
                     co_return;
                 };

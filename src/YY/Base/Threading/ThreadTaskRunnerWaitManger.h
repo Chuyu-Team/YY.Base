@@ -19,7 +19,7 @@ namespace YY
             protected:
                 static constexpr auto kMaxWaitHandleCount = MAXIMUM_WAIT_OBJECTS - 1;
                 HANDLE hWaitHandles[MAXIMUM_WAIT_OBJECTS] = {};
-                WeakPtr<Wait> pWaitTaskWeakPtrs[MAXIMUM_WAIT_OBJECTS];
+                WeakPtr<WaitAsyncOperation> pWaitTaskWeakPtrs[MAXIMUM_WAIT_OBJECTS];
                 volatile uint32_t cWaitHandle = 0;
 
                 ~ThreadTaskRunnerWaitManger()
@@ -96,7 +96,7 @@ namespace YY
                     return kMaxWaitHandleCount;
                 }
 
-                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pWaitTask) noexcept
+                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<WaitAsyncOperation> _pWaitTask) noexcept
                 {
                     if (!_pWaitTask)
                         return E_INVALIDARG;
@@ -205,8 +205,6 @@ namespace YY
                 }
 
             private:
-                virtual void __YYAPI DispatchWaitTask(RefPtr<Wait> _pWaitTask) = 0;
-
                 void __YYAPI ProcessingWaitTask(size_t _uDispatchIndex, DWORD _uWaitResult) noexcept
                 {
                     if (_uDispatchIndex >= cWaitHandle)
@@ -216,8 +214,7 @@ namespace YY
                     RemoveWaitHandleByIndex(_uDispatchIndex);
                     if (_pWaitTask)
                     {
-                        _pWaitTask->uWaitResult = _uWaitResult;
-                        DispatchWaitTask(std::move(_pWaitTask));
+                        _pWaitTask->Resolve(std::move(_uWaitResult));
                     }
                 }
             };

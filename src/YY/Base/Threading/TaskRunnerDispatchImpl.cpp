@@ -37,15 +37,12 @@ namespace YY
                         _hHandle,
                         [](DWORD _uErrorCode, DWORD _cbNumberOfBytesTransfered, LPOVERLAPPED _pOverlapped)
                         {
-                            auto _pDispatchTask = RefPtr<IoTaskEntry>::FromPtr(static_cast<IoTaskEntry*>(_pOverlapped));
-                            if (!_pDispatchTask)
+                            auto _pIoAsyncOperation = RefPtr<IoAsyncOperation<void>>::FromPtr(static_cast<IoAsyncOperation<void>*>(_pOverlapped));
+                            if (!_pIoAsyncOperation)
                                 return;
 
                             // 错误代码如果已经设置，那么可能调用者线程已经事先处理了。
-                            if (_pDispatchTask->OnComplete(_uErrorCode))
-                            {
-                                DispatchTask(std::move(_pDispatchTask));
-                            }
+                            _pIoAsyncOperation->Resolve(_uErrorCode);
                         },
                         0);
 
@@ -67,7 +64,7 @@ namespace YY
                         {
                             if (DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL))
                             {
-                                _pTimer.Get()->ReleaseWeak();
+                                _pTimer.Get()->Release();
                             }
                         }
                     }
@@ -81,15 +78,14 @@ namespace YY
                     }
                     else
                     {
-                        _pTimer.Get()->AddWeakRef();
+                        _pTimer.Get()->AddRef();
                         // 我们使用 CreateTimerQueueTimer这是因为它允许我们在线程池线程中执行回调，没有额外的上下文切换开销。
                         auto _bRet = CreateTimerQueueTimer(
                             &_pTimer->hThreadPoolTimer,
                             NULL,
                             [](PVOID _pParameter, BOOLEAN _bTimerFired)
                             {
-                                YY::WeakPtr<Timer> _pTimerWeak(reinterpret_cast<WeakPtrRef<Timer>*>(_pParameter));
-                                auto _pTimer = _pTimerWeak.Get();
+                                auto _pTimer = RefPtr<Timer>::FromPtr(static_cast<Timer*>(_pParameter));
                                 if (!_pTimer)
                                     return;
 
@@ -111,14 +107,14 @@ namespace YY
                         if (!_bRet)
                         {
                             auto _hr = __HRESULT_FROM_WIN32(GetLastError());
-                            _pTimer.Get()->ReleaseWeak();
                             _pTimer->Wakeup(_hr);
+                            _pTimer.Get()->Release();
                             return;
                         }
                     }
                 }
 
-                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pWait) noexcept override
+                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<WaitAsyncOperation> _pWait) noexcept override
                 {
                     if (_pWait == nullptr || _pWait->hHandle == NULL)
                         return E_INVALIDARG;
@@ -136,8 +132,7 @@ namespace YY
                     const auto _iTotalMilliseconds = (_pWait->uTimeOut - TickCount::GetNow()).GetTotalMilliseconds();
                     if (_iTotalMilliseconds <= 0)
                     {
-                        _pWait->uWaitResult = WaitForSingleObject(_pWait->hHandle, 0);
-                        DispatchTask(std::move(_pWait));
+                        _pWait->Resolve(WaitForSingleObject(_pWait->hHandle, 0));
                         return S_OK;
                     }
 
@@ -148,12 +143,11 @@ namespace YY
                         _pWait->hHandle,
                         [](PVOID _pParameter, BOOLEAN _bTimeout)
                         {
-                            YY::WeakPtr<Wait> _pWaitWeak(reinterpret_cast<WeakPtrRef<Wait>*>(_pParameter));
+                            YY::WeakPtr<WaitAsyncOperation> _pWaitWeak(reinterpret_cast<WeakPtrRef<WaitAsyncOperation>*>(_pParameter));
                             auto _pWait = _pWaitWeak.Get();
                             if (!_pWait)
                                 return;
 
-                            _pWait->uWaitResult = _bTimeout ? WAIT_TIMEOUT : WAIT_OBJECT_0;
                             if (HANDLE _hThreadPoolWait = YY::ExchangePoint(&_pWait->hThreadPoolWait, NULL))
                             {
                                 if (_hThreadPoolWait != INVALID_HANDLE_VALUE)
@@ -162,7 +156,7 @@ namespace YY
                                 }
                             }
 
-                            DispatchTask(std::move(_pWait));
+                            _pWait->Resolve(_bTimeout ? WAIT_TIMEOUT : WAIT_OBJECT_0);
                         },
                         _pWait.Get(),
                         (DWORD)(std::min)(_iTotalMilliseconds, static_cast<int64_t>(UINT32_MAX)),
@@ -172,7 +166,7 @@ namespace YY
                     {
                         auto _hr = __HRESULT_FROM_WIN32(GetLastError());
                         _pWait.Get()->ReleaseWeak();
-                        _pWait->Wakeup(_hr);
+                        _pWait->SetErrorCode(_hr);
                         return _hr;
                     }
 

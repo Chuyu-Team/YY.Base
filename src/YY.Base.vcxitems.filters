@@ -129,6 +129,9 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\IO\Path.cpp">
       <Filter>源文件\YY\Base\IO</Filter>
     </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\IO\File.cpp">
+      <Filter>源文件\YY\Base\IO</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)\..\include\YY\Base\Containers\Array.h">
@@ -314,8 +317,14 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Utils\Handle.h">
       <Filter>头文件\YY\Base\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Threading\Async.h">
+      <Filter>头文件\YY\Base\Threading</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\FunctionTraits.h">
       <Filter>头文件\YY\Base\Functional</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Threading\Task.h">
+      <Filter>头文件\YY\Base\Threading</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
