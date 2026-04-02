@@ -10,8 +10,8 @@
 #include <YY/Base/Memory/WeakPtr.h>
 #include <YY/Base/Time/TickCount.h>
 #include <YY/Base/Time/TimeSpan.h>
-#include <YY/Base/Threading/Coroutine.h>
 #include <YY/Base/Strings/String.h>
+#include <YY/Base/Threading/Task.h>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -127,8 +127,9 @@ namespace YY
                 bool __YYAPI Cancel() override;
             };
 
-            struct Wait : public TaskEntry
+            class WaitAsyncOperation : public AsyncOperationImpl<DWORD>
             {
+            public:
                 // 内部Wait句柄
                 //   * 如果值为 NULL：该对象未关联任何TaskTunner
                 //   * 如果值为 INVALID_HANDLE_VALUE：代表当前线程负责该任务
@@ -136,13 +137,29 @@ namespace YY
                 HANDLE hThreadPoolWait = nullptr;
                 HANDLE hHandle = nullptr;
                 TickCount uTimeOut;
-                DWORD uWaitResult = WAIT_FAILED;
+                // WaitAsyncOperation支持者的TaskRunner
+                WeakPtr<TaskRunner> pOwnerTaskRunnerWeak;
 
+                bool __YYAPI Cancel() override;
+
+                void __YYAPI Reset();
+            };
+
+            struct Wait
+                : public TaskEntry
+                , public WaitAsyncOperation::AsyncOperationCompletedHandler
+            {
+                YY::RefPtr<WaitAsyncOperation> pWaitAsyncOperation;
+                TimeSpan iTimeoutSpan;
                 std::function<bool(DWORD _uWaitResult)> pfnWaitTaskCallback;
+
+                void __YYAPI OnCompleted(AsyncOperation<DWORD>* _pAsyncInfo, AsyncStatus _eStatus) override;
 
                 HRESULT __YYAPI RunTask() override;
 
                 bool __YYAPI Cancel() override;
+
+                void __YYAPI InstallCompleted();
             };
 
 #if defined(_WIN32)
@@ -174,6 +191,7 @@ namespace YY
                 friend TaskRunnerDispatch;
                 friend Timer;
                 friend Wait;
+                friend WaitAsyncOperation;
 
             protected:
                 uint32_t uTaskRunnerId;
@@ -217,36 +235,82 @@ namespace YY
 
                 virtual TaskRunnerStyle __YYAPI GetStyle() const noexcept = 0;
 
-#if defined(_HAS_CXX20) && _HAS_CXX20
                 /// <summary>
-                /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
+                /// 创建一个异步任务。
                 /// </summary>
-                /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
-                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static TaskAwaiter<HRESULT> __YYAPI AsyncSleep(_In_ TimeSpan _uAfter);
+                /// <typeparam name="AsyncCallbackType_">异步回调类型。</typeparam>
+                /// <typeparam name="ResultType_">任务结果类型。</typeparam>
+                /// <param name="_pfnAsyncCallback">异步回调函数。</param>
+                /// <returns>返回一个表示异步操作的任务对象。</returns>
+                template<typename AsyncCallbackType_, typename ResultType_ = typename FunctionTraits<AsyncCallbackType_>::ReturnType>
+                Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback)
+                {
+                    using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback));
+                    if (!_pTaskAsyncOperation)
+                        throw Exception();
+
+                    PostTask(
+                        [_pTaskAsyncOperation]()
+                        {
+                            _pTaskAsyncOperation->Resume();
+                        });
+
+                    return Task<ResultType_>(std::move(_pTaskAsyncOperation));
+                }
+
+                /// <summary>
+                /// 创建一个异步延迟任务。
+                /// </summary>
+                /// <param name="_uAfter">需要延迟执行的时间</param> 
+                /// <param name="_pfnAsyncCallback">需要异步执行的回调函数。</param>
+                /// <returns>返回一个表示异步操作的任务对象。</returns>
+                template<typename AsyncCallbackType_, typename ResultType_ = typename FunctionTraits<AsyncCallbackType_>::ReturnType>
+                Task<ResultType_> __YYAPI CreateDelayTask(_In_ TimeSpan _uAfter, AsyncCallbackType_&& _pfnAsyncCallback)
+                {
+                    using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback));
+                    if (!_pTaskAsyncOperation)
+                        throw Exception();
+
+                    PostDelayTask(
+                        _uAfter,
+                        [_pTaskAsyncOperation]()
+                        {
+                            _pTaskAsyncOperation->Resume();
+                        });
+
+                    return Task<ResultType_>(std::move(_pTaskAsyncOperation));
+                }
 
                 /// <summary>
                 /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
                 /// </summary>
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
-                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static TaskAwaiter<HRESULT> __YYAPI Delay(_In_ TimeSpan _uAfter)
+                /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static Task<HRESULT> __YYAPI SleepAsync(_In_ TimeSpan _uAfter);
+
+                /// <summary>
+                /// 返回一个用于异步睡眠的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
+                /// </summary>
+                /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
+                /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static Task<HRESULT> __YYAPI Delay(_In_ TimeSpan _uAfter)
                 {
-                    return AsyncSleep(_uAfter);
+                    return SleepAsync(_uAfter);
                 }
 
                 /// <summary>
                 /// 返回一个用于超时的等待器，该等待器在指定时间间隔后完成并提供 HRESULT 结果。
                 /// </summary>
                 /// <param name="_uAfter">要等待的时间间隔（TimeSpan），表示异步睡眠的持续时间。</param>
-                /// <returns>一个 TaskAwaiter<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
-                static TaskAwaiter<HRESULT> __YYAPI Timeout(_In_ TimeSpan _uAfter)
+                /// <returns>一个 Task<HRESULT>，可用于等待异步睡眠操作完成并获取表示操作结果的 HRESULT。</returns>
+                static Task<HRESULT> __YYAPI Timeout(_In_ TimeSpan _uAfter)
                 {
-                    return AsyncSleep(_uAfter);
+                    return SleepAsync(_uAfter);
                 }
-#endif
 
-#if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
+#if defined(_WIN32)
                 /// <summary>
                 /// 异步等待指定对象并返回表示等待结果的 awaiter。
                 /// </summary>
@@ -258,7 +322,7 @@ namespace YY
                 /// * WAIT_TIMEOUT
                 /// * WAIT_FAILED
                 /// </returns>
-                static TaskAwaiter<DWORD> __YYAPI AsyncWaitForObject(_In_ HANDLE _hHandle, _In_ TimeSpan _iWaitTimeOut = TimeSpan::GetMax());
+                static Task<DWORD> __YYAPI WaitForObjectAsync(_In_ HANDLE _hHandle, _In_ TimeSpan _iWaitTimeOut = TimeSpan::GetMax());
 #endif
 
                 /// <summary>
@@ -276,26 +340,6 @@ namespace YY
                 /// <param name="_pfnTaskCallback">需要异步执行回调。</param>
                 /// <returns></returns>
                 HRESULT __YYAPI PostTask(_In_ std::function<void(void)>&& _pfnTaskCallback);
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                /// <summary>
-                /// 创建一个异步可 co_await 任务。
-                /// </summary>
-                /// <param name="_uAfter">需要延迟执行的时间</param> 
-                /// <param name="_pfnLambdaCallback">需要异步执行的 Lambda 表达式</param>
-                /// <returns>TaskAwaiter<void></returns>
-                TaskAwaiter<void> __YYAPI AsyncDelayTask(
-                    _In_ TimeSpan _uAfter,
-                    _In_ std::function<void(void)>&& _pfnTaskCallback);
-#endif
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-                TaskAwaiter<void> __YYAPI AsyncTask(
-                    _In_ std::function<void(void)>&& _pfnTaskCallback)
-                {
-                    return AsyncDelayTask(TimeSpan(), std::move(_pfnTaskCallback));
-                }
-#endif
 
                 /// <summary>
                 /// 同步执行Callback。严重警告：这可能阻塞调用者，甚至产生死锁！！！
@@ -330,7 +374,7 @@ namespace YY
                 /// 如果等待句柄数量大于等于 64，从第64个句柄开始，剩余句柄将安排到单独的线程，每个线程最多等待63个句柄，因此等待的句柄数量越多，额外进行安排的线程也就越多。
                 /// </summary>
                 /// <param name="_hHandle">需要监听的句柄，注意同一个句柄不能重复等待。</param>
-                /// <param name="_nWaitTimeOut">最大超时等待的时间。</param>
+                /// <param name="_iWaitTimeOut">最大超时等待的时间。</param>
                 /// <param name="_pfnTaskCallback">有信号时、等待失败，或者超时时将触发的回调函数。
                 /// _uWaitResult 可以是WAIT_ABANDONED、WAIT_OBJECT_0、WAIT_TIMEOUT、WAIT_FAILED。
                 /// 
@@ -343,7 +387,7 @@ namespace YY
                 /// </returns>
                 RefPtr<Wait> __YYAPI CreateWait(
                     _In_ HANDLE _hHandle,
-                    _In_ TimeSpan _nWaitTimeOut,
+                    _In_ TimeSpan _iWaitTimeOut,
                     _In_ std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback);
 
                 RefPtr<Wait> __YYAPI CreateWait(
@@ -362,9 +406,9 @@ namespace YY
 
                 virtual HRESULT __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTask);
 
-                virtual HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pTask);
+                virtual HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<WaitAsyncOperation> _pTask);
 
-                virtual HRESULT __YYAPI DeleteWaitInternal(_In_ Wait* _pTask);
+                virtual HRESULT __YYAPI DeleteWaitInternal(_In_ WaitAsyncOperation* _pTask);
             };
 
             // 按顺序执行的Task（不一定绑定固定物理线程，只保证任务串行）

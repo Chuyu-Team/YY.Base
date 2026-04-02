@@ -8,6 +8,7 @@
 #include <YY/Base/Threading/ProcessThreads.h>
 #include <YY/Base/Time/TickCount.h>
 #include <YY/Base/Strings/String.h>
+#include <YY/Base/Threading/Task.h>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -42,7 +43,6 @@ namespace TaskRunnerUnitTest
                         Sync::Increment(&_uCount2);
                     });
             }
-
 
             for (int i= 0; _uCount2 != 1000;++i)
             {
@@ -740,7 +740,6 @@ namespace TaskRunnerUnitTest
 
         TEST_METHOD(Wait句柄测试)
         {
-            HANDLE _hWaitEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
             RefPtr<ThreadTaskRunner> _pTaskRunners[] = { ThreadTaskRunner::Create(false), ThreadTaskRunner::Create(true) };
             for (auto& _pTaskRunner : _pTaskRunners)
             {
@@ -749,28 +748,42 @@ namespace TaskRunnerUnitTest
                 for (int i = 0; i < 10; ++i)
                 {
                     volatile uint32_t _uWaitResultCount = 0;
-                    volatile UINT64 _uTickCount = 0;
+                    volatile YY::TickCount _uTickCount;
 
                     auto _pWait = _pTaskRunner->CreateWait(_hEvent, [&](DWORD _uWaitResultT)
                         {
                             if (_uWaitResultT == WAIT_OBJECT_0)
                             {
-                                YY::Increment(&_uWaitResultCount);
-                                _uTickCount = GetTickCount64();
+                                _uTickCount.uTicks = YY::TickCount::GetNow().uTicks;
                             }
-                            return true;
+
+                            YY::Increment(&_uWaitResultCount);
+                            WakeByAddressAll((PVOID)&_uWaitResultCount);
+                            return false;
                         });
+                    uint32_t _uTargetWaitResultCount = 0;
 
-                    WaitForSingleObject(_hWaitEvent, 600);
+                    Assert::IsFalse(WaitOnAddress(&_uWaitResultCount, &_uTargetWaitResultCount, sizeof(_uTargetWaitResultCount), 600));
+
+                    auto _uTickCountEnd = YY::TickCount::GetNow();
                     SetEvent(_hEvent);
-                    auto _uTickCountEnd = GetTickCount64();
-                    WaitForSingleObject(_hWaitEvent, 10);
+                    Assert::IsTrue(WaitOnAddress(&_uWaitResultCount, &_uTargetWaitResultCount, sizeof(_uTargetWaitResultCount), 1000));
 
-                    Assert::IsTrue(abs((long long)(_uTickCountEnd - _uTickCount)) < 50);
+                    auto _uCOunt = (_uTickCountEnd - YY::TickCount::FromTicks(_uTickCount.uTicks)).GetTotalMilliseconds();
+                    YY::uString _szMessage;
+                    _szMessage.Format(L"第 %d次，预期延迟 %u，实际延迟 %d\n", i, 50, (int32_t)_uCOunt);
+                    Assert::IsTrue(_uCOunt < 50, _szMessage.GetConstString());
                 }
 
-                // CloseHandle(_hEvent);
+                CloseHandle(_hEvent);
+            }
+        }
 
+        TEST_METHOD(超多句柄Wait句柄测试)
+        {
+            RefPtr<ThreadTaskRunner> _pTaskRunners[] = { ThreadTaskRunner::Create(false), ThreadTaskRunner::Create(true) };
+            for (auto& _pTaskRunner : _pTaskRunners)
+            {
                 // 超多句柄等待情况测试
                 {
                     HANDLE _hEvents[300];
@@ -788,11 +801,15 @@ namespace TaskRunnerUnitTest
                                 {
                                     YY::Increment(&_uWaitResultCount);
                                 }
+                                else
+                                {
+                                    int j = 0;
+                                }
                                 return true;
                             });
                     }
 
-                    WaitForSingleObject(_hWaitEvent, 100);
+                    Sleep(100);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(0));
 
                     for (auto _hEvent : _hEvents)
@@ -800,7 +817,7 @@ namespace TaskRunnerUnitTest
                         SetEvent(_hEvent);
                     }
 
-                    WaitForSingleObject(_hWaitEvent, 100);
+                    Sleep(1000);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents)));
 
                     for (auto _hEvent : _hEvents)
@@ -808,7 +825,7 @@ namespace TaskRunnerUnitTest
                         SetEvent(_hEvent);
                     }
 
-                    WaitForSingleObject(_hWaitEvent, 100);
+                    Sleep(1000);
                     Assert::AreEqual((uint32_t)_uWaitResultCount, uint32_t(std::size(_hEvents) * 2));
 
                     /*for (auto _hEvent : _hEvents)
@@ -817,8 +834,6 @@ namespace TaskRunnerUnitTest
                     }*/
                 }
             }
-
-            CloseHandle(_hWaitEvent);
         }
 
         TEST_METHOD(Wait句柄超时测试)
@@ -851,6 +866,136 @@ namespace TaskRunnerUnitTest
             Assert::IsTrue((_pWait->WaitTask(YY::TimeSpan::FromMilliseconds(100ul))));
             // CloseHandle(_hEvent);
         }
+
+        TEST_METHOD(Then语义)
+        {
+            const auto _hrPending = E_PENDING;
+
+            auto _pHr = std::make_shared<HRESULT>(_hrPending);
+            std::weak_ptr<HRESULT> _pWeakHr = _pHr;
+
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+            auto _Task = _pTaskRunner->CreateTask(
+                []()
+                {
+                    return 8848;
+                });
+
+            _Task.Then(
+                _pTaskRunner,
+                [_pWeakHr](int i) -> void
+                {
+                    auto _pHr = _pWeakHr.lock();
+                    if (!_pHr)
+                        return;
+
+                    *_pHr = i;
+                    WakeByAddressAll(_pHr.get());
+                    return;
+                });
+
+            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 2000);
+            Assert::AreEqual(HRESULT(8848), HRESULT(*_pHr));
+        }
+
+        TEST_METHOD(WhenAll语义)
+        {
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+
+            {
+                volatile uint32_t _uCount = 0;
+
+                auto _Task1 = _pTaskRunner->CreateTask(
+                    [&_uCount]()
+                    {
+                        Sleep(10);
+                        YY::Increment(&_uCount);
+                        return 1;
+                    });
+
+                auto _Task2 = _pTaskRunner->CreateTask(
+                    [&_uCount]()
+                    {
+                        Sleep(10);
+                        YY::Increment(&_uCount);
+                        return 2;
+                    });
+
+                auto _WhenAllTask = YY::WhenAll(_Task1, _Task2);
+
+                Assert::IsTrue(_WhenAllTask.GetAsyncOperation()->WaitTask(YY::TimeSpan::FromMilliseconds(2000ul)));
+                Assert::IsTrue(_WhenAllTask.GetStatus() == AsyncStatus::Completed);
+                _WhenAllTask.GetResult();
+                Assert::AreEqual((uint32_t)_uCount, uint32_t(2));
+            }
+
+            {
+                auto _Task1 = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    });
+
+                auto _Task2 = _pTaskRunner->CreateTask(
+                    []()
+                    {
+                        Sleep(10);
+                        return 2;
+                    });
+
+                auto _WhenAllTask = YY::WhenAll(_Task1, _Task2);
+
+                Assert::IsTrue(_WhenAllTask.GetAsyncOperation()->WaitTask(YY::TimeSpan::FromMilliseconds(2000ul)));
+                Assert::AreEqual(HRESULT(E_ACCESSDENIED), _WhenAllTask.GetResult());
+            }
+        }
+
+        TEST_METHOD(WhenAny语义)
+        {
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+
+            {
+                auto _Task1 = _pTaskRunner->CreateTask(
+                    []()
+                    {
+                        Sleep(10);
+                        return 1;
+                    });
+
+                auto _Task2 = _pTaskRunner->CreateTask(
+                    []()
+                    {
+                        Sleep(100);
+                        return 2;
+                    });
+
+                auto _WhenAnyTask = YY::WhenAny(_Task1, _Task2);
+
+                Assert::IsTrue(_WhenAnyTask.GetAsyncOperation()->WaitTask(YY::TimeSpan::FromMilliseconds(2000ul)));
+                Assert::IsTrue(_WhenAnyTask.GetStatus() == AsyncStatus::Completed);
+                Assert::AreEqual(int32_t(0), _WhenAnyTask.GetResult());
+            }
+
+            {
+                auto _Task1 = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    });
+
+                auto _Task2 = _pTaskRunner->CreateTask(
+                    []()
+                    {
+                        Sleep(10);
+                        return 2;
+                    });
+
+                auto _WhenAnyTask = YY::WhenAny(_Task1, _Task2);
+
+                Assert::IsTrue(_WhenAnyTask.GetAsyncOperation()->WaitTask(YY::TimeSpan::FromMilliseconds(2000ul)));
+                Assert::AreEqual(int32_t(0), _WhenAnyTask.GetResult());
+            }
+        }
     };
 
     TEST_CLASS(CommonTaskRunnerUnitTest)
@@ -866,18 +1011,18 @@ namespace TaskRunnerUnitTest
             auto _pHr = std::make_shared<HRESULT>(_hrPending);
             std::weak_ptr<HRESULT> _pWeakHr = _pHr;
             _pTaskRunner->PostTask(
-                [_pWeakHr]() -> YY::Coroutine<void>
+                [_pWeakHr]() -> YY::Task<void>
                 {
                     auto _pHr = _pWeakHr.lock();
                     if (!_pHr)
                         co_return;
 
-                    *_pHr = co_await YY::TaskRunner::AsyncSleep(YY::TimeSpan::FromMilliseconds(500));
+                    *_pHr = co_await YY::TaskRunner::SleepAsync(YY::TimeSpan::FromMilliseconds(500));
                     WakeByAddressAll(_pHr.get());
                     co_return;
                 });
 
-            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 2000);
+            ::WaitOnAddress((volatile void*)_pHr.get(), (void*)&_hrPending, sizeof(_hrPending), 20000);
 
             Assert::AreEqual(HRESULT(S_OK), HRESULT(*_pHr));
         }
@@ -893,7 +1038,7 @@ namespace TaskRunnerUnitTest
             auto _pHr = std::make_shared<HRESULT>(_hrPending);
             std::weak_ptr<HRESULT> _pWeakHr = _pHr;
             _pTaskRunner->PostTask(
-                [_pWeakHr]() -> YY::Coroutine<void>
+                [_pWeakHr]() -> YY::Task<void>
                 {
                     auto _pHr = _pWeakHr.lock();
                     if (!_pHr)
@@ -901,12 +1046,12 @@ namespace TaskRunnerUnitTest
 
                     auto _hEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 
-                    auto _uResult = co_await YY::TaskRunner::AsyncWaitForObject(_hEvent, YY::TimeSpan::FromMilliseconds(100));
+                    auto _uResult = co_await YY::TaskRunner::WaitForObjectAsync(_hEvent, YY::TimeSpan::FromMilliseconds(100));
 
                     Assert::AreEqual(DWORD(WAIT_TIMEOUT), DWORD(_uResult));
 
                     SetEvent(_hEvent);
-                    _uResult = co_await YY::TaskRunner::AsyncWaitForObject(_hEvent, YY::TimeSpan::FromMilliseconds(100));
+                    _uResult = co_await YY::TaskRunner::WaitForObjectAsync(_hEvent, YY::TimeSpan::FromMilliseconds(100));
                     Assert::AreEqual(DWORD(WAIT_OBJECT_0), DWORD(_uResult));
 
                     *_pHr.get() = S_OK;

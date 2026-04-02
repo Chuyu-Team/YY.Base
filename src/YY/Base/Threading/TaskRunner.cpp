@@ -17,6 +17,22 @@ namespace YY
     {
         namespace Threading
         {
+            static constexpr TickCount __YYAPI GetTimeout(TimeSpan _iWaitTimeOut) noexcept
+            {
+                if (_iWaitTimeOut.GetTicks() <= 0)
+                {
+                    return TickCount::FromTicks(0);
+                }
+                else if (_iWaitTimeOut >= TimeSpan::FromMilliseconds(UINT32_MAX))
+                {
+                    return TickCount::GetMax();
+                }
+                else
+                {
+                    return TickCount::GetNow() + _iWaitTimeOut;
+                }
+            }
+            
             TaskEntry::~TaskEntry()
             {
                 Cancel();
@@ -134,10 +150,10 @@ namespace YY
                 }
                 else if(_hThreadPoolTimer)
                 {
-                    // 如果失败，往往意味着回调函数正在进行，此时交给回调函数 执行ReleaseWeak。
+                    // 如果失败，往往意味着回调函数正在进行，此时交给回调函数 执行Release。
                     if (DeleteTimerQueueTimer(NULL, _hThreadPoolTimer, NULL))
                     {
-                        ReleaseWeak();
+                        Release();
                     }
                 }
 
@@ -164,142 +180,55 @@ namespace YY
                 return TaskRunnerDispatch::Get()->StartIo();
             }
 
-#if defined(_HAS_CXX20) && _HAS_CXX20
-            TaskAwaiter<HRESULT>__YYAPI TaskRunner::AsyncSleep(TimeSpan _uAfter)
+            Task<HRESULT> __YYAPI TaskRunner::SleepAsync(TimeSpan _uAfter)
             {
-                const auto _uExpire = TickCount::GetNow() + _uAfter;
-
-                struct AsyncTaskEntry
-                    : public Timer
-                    , public TaskAwaiter<HRESULT>::RefData
+                class SleepAsyncOperation : public AsyncOperationImpl<HRESULT>
                 {
-                    HRESULT _hrValue = E_PENDING;
+                public:
 
-                    uint32_t __YYAPI AddRef() noexcept override
-                    {
-                        return Timer::AddRef();
-                    }
-
-                    uint32_t __YYAPI Release() noexcept override
-                    {
-                        return Timer::Release();
-                    }
-
-                    HRESULT __YYAPI RunTask() override
-                    {
-                        if (IsCanceled())
-                            return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-
-                        _hrValue = Resume();
-
-                        Wakeup(_hrValue);
-                        return _hrValue;
-                    }
-
-                    HRESULT __YYAPI GetResult() noexcept override
-                    {
-                        return _hrValue;
-                    }
                 };
 
-                auto _pAsyncTaskEntry = RefPtr<AsyncTaskEntry>::Create();
-                if (!_pAsyncTaskEntry)
-                    throw Exception();
+                auto _pSleepAsyncOperation = YY::RefPtr<SleepAsyncOperation>::Create();
 
-                _pAsyncTaskEntry->uExpire = _uExpire;
-                HRESULT _hr = S_OK;
-                do
+                auto _pTaskRunner = TaskRunner::GetCurrent();
+                if (!_pTaskRunner)
                 {
-                    auto _pTaskRunner = TaskRunner::GetCurrent();
-                    if (!_pTaskRunner)
-                    {
-                        _hr = E_UNEXPECTED;
-                        break;
-                    }
-
-                    _hr = _pTaskRunner->SetTimerInternal(_pAsyncTaskEntry);
-
-                } while (false);
-
-                if (_hr != S_OK)
-                {
-                    _pAsyncTaskEntry->_hrValue = _hr;
-                    _pAsyncTaskEntry->Resume();
+                    _pSleepAsyncOperation->Resolve(E_UNEXPECTED);
+                    return Task<HRESULT>(std::move(_pSleepAsyncOperation));
                 }
 
-                return TaskAwaiter<HRESULT>(std::move(_pAsyncTaskEntry));
+                _pTaskRunner->PostDelayTask(_uAfter, [_pSleepAsyncOperation]() mutable
+                    {
+                        _pSleepAsyncOperation->Resolve(S_OK);
+                    });
+
+                return Task<HRESULT>(std::move(_pSleepAsyncOperation));
             }
-#endif
 
-#if defined(_HAS_CXX20) && _HAS_CXX20 && defined(_WIN32)
-            TaskAwaiter<DWORD>__YYAPI TaskRunner::AsyncWaitForObject(HANDLE _hHandle, TimeSpan _iWaitTimeOut)
+#if defined(_WIN32)
+            Task<DWORD>__YYAPI TaskRunner::WaitForObjectAsync(HANDLE _hHandle, TimeSpan _iWaitTimeOut)
             {
-                struct AsyncTaskEntry
-                    : public Wait
-                    , public TaskAwaiter<DWORD>::RefData
+                auto _pWaitForObjectAsyncOperation = YY::RefPtr<WaitAsyncOperation>::Create();
+                _pWaitForObjectAsyncOperation->uTimeOut = GetTimeout(_iWaitTimeOut);
+                _pWaitForObjectAsyncOperation->hHandle = _hHandle;
+
+                if (_hHandle == NULL || _hHandle == INVALID_HANDLE_VALUE)
                 {
-                    uint32_t __YYAPI AddRef() noexcept override
-                    {
-                        return Wait::AddRef();
-                    }
+                    _pWaitForObjectAsyncOperation->Resolve(WAIT_FAILED);
+                    return Task<DWORD>(std::move(_pWaitForObjectAsyncOperation));
+                }
 
-                    uint32_t __YYAPI Release() noexcept override
-                    {
-                        return Wait::Release();
-                    }
-
-                    HRESULT __YYAPI RunTask() override
-                    {
-                        if (IsCanceled())
-                            return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-
-                        HRESULT _hr = Resume();
-                        Wakeup(_hr);
-                        return _hr;
-                    }
-
-                    DWORD __YYAPI GetResult() noexcept override
-                    {
-                        return uWaitResult;
-                    }
-                };
-
-                auto _pAsyncTaskEntry = RefPtr<AsyncTaskEntry>::Create();
-                if (!_pAsyncTaskEntry)
-                    throw Exception();
-
-                _pAsyncTaskEntry->hHandle = _hHandle;
-
-                // >= UINT32_MAX 时认为是无限等待。
-                if (_iWaitTimeOut >= TimeSpan::FromMilliseconds(UINT32_MAX))
+                auto _pTaskRunner = TaskRunner::GetCurrent();
+                if (_pTaskRunner)
                 {
-                    _pAsyncTaskEntry->uTimeOut = TickCount::GetMax();
+                    _pTaskRunner->SetWaitInternal(_pWaitForObjectAsyncOperation);
                 }
                 else
                 {
-                    _pAsyncTaskEntry->uTimeOut = TickCount::GetNow() + _iWaitTimeOut;
+                    TaskRunnerDispatch::Get()->SetWaitInternal(_pWaitForObjectAsyncOperation);
                 }
 
-                HRESULT _hr = S_OK;
-                do
-                {
-                    auto _pTaskRunner = TaskRunner::GetCurrent();
-                    if (!_pTaskRunner)
-                    {
-                        _hr = E_UNEXPECTED;
-                        break;
-                    }
-                    
-                    _hr = _pTaskRunner->SetWaitInternal(_pAsyncTaskEntry);
-
-                } while (false);
-
-                if (_hr != S_OK)
-                {
-                    _pAsyncTaskEntry->Resume();
-                }
-
-                return TaskAwaiter<DWORD>(std::move(_pAsyncTaskEntry));
+                return Task<DWORD>(std::move(_pWaitForObjectAsyncOperation));
             }
 #endif
 
@@ -338,86 +267,6 @@ namespace YY
             {
                 return RefPtr<SequencedTaskRunnerImpl>::Create(std::move(_szThreadDescription));
             }
-
-#if defined(_HAS_CXX20) && _HAS_CXX20
-            TaskAwaiter<void> __YYAPI TaskRunner::AsyncDelayTask(TimeSpan _uAfter, std::function<void(void)>&& _pfnTaskCallback)
-            {
-                struct AsyncTaskEntry
-                    : public Timer
-                    , public TaskAwaiter<void>::RefData
-                {
-                    uint32_t __YYAPI AddRef() noexcept override
-                    {
-                        return Timer::AddRef();
-                    }
-
-                    uint32_t __YYAPI Release() noexcept override
-                    {
-                        return Timer::Release();
-                    }
-
-                    HRESULT __YYAPI RunTask() override
-                    {
-                        auto _hr = Timer::RunTask();
-                        if (FAILED(_hr))
-                            return _hr;
-
-                        auto _oCoroutineInfo = oCoroutineInfo.Flush();
-                        if (_oCoroutineInfo.hCoroutineHandle == 0 || _oCoroutineInfo.hCoroutineHandle == (intptr_t)-1)
-                            return S_OK;
-
-                        // 如果 pResumeTaskRunner == nullptr，目标不属于任何一个 SequencedTaskRunner，这很可能任务不关下是否需要串行
-                        // 如果 pResumeTaskRunner == SequencedTaskRunner::GetCurrent()，这没有道理进行 PostTask，徒增开销。
-                        auto _pResumeTaskRunner = pResumeTaskRunnerWeak.Get();
-                        if (pResumeTaskRunnerWeak == nullptr || _pResumeTaskRunner == YY::Base::Threading::TaskRunner::GetCurrent())
-                        {
-                            return _oCoroutineInfo.Resume();
-                        }
-                        else if (_pResumeTaskRunner)
-                        {
-                            // TODO: 如果 _pResumeTaskRunner 没有执行 resume，则将发生内存泄漏。
-                            _pResumeTaskRunner->PostTask(
-                                [_oCoroutineInfo]() mutable
-                                {
-                                    _oCoroutineInfo.Resume();
-                                });
-
-                            return S_OK;
-                        }
-                        else
-                        {
-                            // 任务被取消
-                            _oCoroutineInfo.Destroy();
-                            return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
-                        }
-                    }
-                };
-
-                auto _pCurrent = YY::Base::Threading::TaskRunner::GetCurrent();
-                auto _pAsyncTaskEntry = RefPtr<AsyncTaskEntry>::Create();
-                if (!_pAsyncTaskEntry)
-                    throw Exception();
-
-                _pAsyncTaskEntry->pfnTaskCallback = std::move(_pfnTaskCallback);
-                _pAsyncTaskEntry->pResumeTaskRunnerWeak = _pCurrent;
-
-                HRESULT _hr;
-                if (_uAfter.GetTicks() > 0)
-                {
-                    _pAsyncTaskEntry->uExpire = TickCount::GetNow() + _uAfter;
-                    _hr = SetTimerInternal(_pAsyncTaskEntry);
-                }
-                else
-                {
-                    _hr = PostTaskInternal(_pAsyncTaskEntry);
-                }
-
-                if (FAILED(_hr))
-                    throw Exception();
-
-                return TaskAwaiter<void>(std::move(_pAsyncTaskEntry));
-            }
-#endif
 
             HRESULT __YYAPI TaskRunner::SendTask(std::function<void(void)>&& pfnTaskCallback)
             {
@@ -469,7 +318,7 @@ namespace YY
                 return _pTimer;
             }
 
-            RefPtr<Wait> __YYAPI TaskRunner::CreateWait(HANDLE _hHandle, TimeSpan _nWaitTimeOut, std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback)
+            RefPtr<Wait> __YYAPI TaskRunner::CreateWait(HANDLE _hHandle, TimeSpan _iWaitTimeOut, std::function<bool(DWORD _uWaitResult)>&& _pfnTaskCallback)
             {
                 if (_hHandle == nullptr || _hHandle == INVALID_HANDLE_VALUE)
                     return nullptr;
@@ -481,21 +330,25 @@ namespace YY
                 if (!_pWait)
                     return nullptr;
 
-                _pWait->hHandle = _hHandle;
-                // >= UINT32_MAX 时认为是无限等待。
-                if (_nWaitTimeOut >= TimeSpan::FromMilliseconds(UINT32_MAX))
+                auto _pWaitAsyncOperation = YY::RefPtr<WaitAsyncOperation>::Create();
+                _pWaitAsyncOperation->uTimeOut = GetTimeout(_iWaitTimeOut);
+                _pWaitAsyncOperation->hHandle = _hHandle;
+                _pWaitAsyncOperation->pOwnerTaskRunnerWeak = this;
+
+                _pWait->pWaitAsyncOperation = _pWaitAsyncOperation;
+                _pWait->pfnWaitTaskCallback = std::move(_pfnTaskCallback);
+                _pWait->pOwnerTaskRunnerWeak = this;
+                _pWait->iTimeoutSpan = _iWaitTimeOut;
+
+                if (_hHandle == nullptr || _hHandle == INVALID_HANDLE_VALUE)
                 {
-                    _pWait->uTimeOut = TickCount::GetMax();
+                    _pWaitAsyncOperation->Resolve(WAIT_FAILED);
                 }
                 else
                 {
-                    _pWait->uTimeOut = TickCount::GetNow() + _nWaitTimeOut;
+                    _pWait->InstallCompleted();
+                    SetWaitInternal(_pWaitAsyncOperation);
                 }
-
-                _pWait->pfnWaitTaskCallback = std::move(_pfnTaskCallback);
-                auto _hr = SetWaitInternal(_pWait);
-                if (FAILED(_hr))
-                    return nullptr;
 
                 return _pWait;
             }
@@ -519,14 +372,10 @@ namespace YY
                 return S_OK;
             }
 
-            HRESULT __YYAPI TaskRunner::SetWaitInternal(RefPtr<Wait> _pTask)
+            HRESULT __YYAPI TaskRunner::SetWaitInternal(RefPtr<WaitAsyncOperation> _pTask)
             {
-                _pTask->pOwnerTaskRunnerWeak = this;
-                _pTask->hr = E_PENDING;
-
                 if (_pTask->IsCanceled())
                 {
-                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
 
@@ -534,7 +383,7 @@ namespace YY
                 return S_OK;
             }
 
-            HRESULT __YYAPI TaskRunner::DeleteWaitInternal(Wait* _pTask)
+            HRESULT __YYAPI TaskRunner::DeleteWaitInternal(WaitAsyncOperation* _pTask)
             {
                 return S_OK;
             }
@@ -648,16 +497,29 @@ namespace YY
                 return RefPtr<ParallelTaskRunnerImpl>::Create(_uParallelMaximum, std::move(_szThreadDescription));
             }
 
+            void __YYAPI Wait::OnCompleted(AsyncOperation<DWORD>* _pAsyncInfo, AsyncStatus _eStatus)
+            {
+                auto _pThis = YY::RefPtr<Wait>::FromPtr(this);
+                if (_eStatus == AsyncStatus::Completed)
+                {
+                    if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
+                    {
+                        _pOwnerTaskRunner->PostTaskInternal(std::move(_pThis));
+                    }
+                }
+            }
+
             HRESULT __YYAPI Wait::RunTask()
             {
                 if (IsCanceled())
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
 
                 HRESULT _hr = S_OK;
+                TickCount _uTimeOut = GetTimeout(iTimeoutSpan);;
                 bool _bRet = false;
                 try
                 {
-                    _bRet = pfnWaitTaskCallback(uWaitResult);
+                    _bRet = pfnWaitTaskCallback(pWaitAsyncOperation->GetResult());
                 }
                 catch (const YY::Base::OperationCanceledException& _Exception)
                 {
@@ -670,7 +532,11 @@ namespace YY
                 {
                     if (auto _pOwnerTaskRunner = pOwnerTaskRunnerWeak.Get())
                     {
-                        _pOwnerTaskRunner->SetWaitInternal(this);
+                        pWaitAsyncOperation->Reset();
+                        hr = E_PENDING;
+                        pWaitAsyncOperation->uTimeOut = _uTimeOut;
+                        InstallCompleted();
+                        _pOwnerTaskRunner->SetWaitInternal(pWaitAsyncOperation);
                     }
                 }
 
@@ -680,6 +546,29 @@ namespace YY
             bool __YYAPI Wait::Cancel()
             {
                 const auto _bRet = TaskEntry::Cancel();
+                if (pWaitAsyncOperation)
+                {
+                    pWaitAsyncOperation->Cancel();
+                }
+
+                return _bRet;
+            }
+
+            void __YYAPI Wait::InstallCompleted()
+            {
+                AddRef();
+                if (!pWaitAsyncOperation->AddCompletedHandler(this))
+                {
+                    OnCompleted(pWaitAsyncOperation, pWaitAsyncOperation->GetStatus());
+                }
+            }
+            
+            bool __YYAPI WaitAsyncOperation::Cancel()
+            {
+                if (!BeginNotifyCompletedHandlers(AsyncStatus::Canceled))
+                {
+                    return false;
+                }
 
                 HANDLE _hThreadPoolWait = YY::ExchangePoint(&hThreadPoolWait, NULL);
                 if (_hThreadPoolWait == INVALID_HANDLE_VALUE)
@@ -690,7 +579,7 @@ namespace YY
                         _pOwnerTaskRunner->DeleteWaitInternal(this);
                     }
                 }
-                else if(_hThreadPoolWait)
+                else if (_hThreadPoolWait)
                 {
                     // 如果失败，往往意味着回调函数正在进行，此时交给回调函数 执行ReleaseWeak即可。
                     if (UnregisterWaitEx(_hThreadPoolWait, NULL))
@@ -699,8 +588,15 @@ namespace YY
                     }
                 }
 
-                return _bRet;
+                NotifyCompletedHandlers();
+                return true;
             }
-        } // namespace Threading
+            
+            void __YYAPI WaitAsyncOperation::Reset()
+            {
+                hr = E_PENDING;
+                eStatus = AsyncStatus::Started;
+            }
+} // namespace Threading
     }
 } // namespace YY

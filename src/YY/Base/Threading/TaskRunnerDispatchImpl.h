@@ -30,7 +30,7 @@ namespace YY
 
                 virtual void __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTimer) noexcept = 0;
 
-                virtual HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pWait) noexcept = 0;
+                virtual HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<WaitAsyncOperation> _pWait) noexcept = 0;
 
                 /// <summary>
                 /// 发起异步请求成功后请调用此函数。内部将对完成端口进行监听。

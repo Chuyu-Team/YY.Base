@@ -108,13 +108,11 @@ namespace YY
 
                 HRESULT __YYAPI SetTimerInternal(_In_ RefPtr<Timer> _pTask) override;
 
-                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<Wait> _pTask) override;
+                HRESULT __YYAPI SetWaitInternal(_In_ RefPtr<WaitAsyncOperation> _pTask) override;
 
-                HRESULT __YYAPI DeleteWaitInternal(Wait* _pTask) override;
+                HRESULT __YYAPI DeleteWaitInternal(WaitAsyncOperation* _pTask) override;
 
                 void __YYAPI DispatchTimerTask(RefPtr<Timer> _pTimerTask) override;
-
-                void __YYAPI DispatchWaitTask(RefPtr<Wait> _pWaitTask) override;
 
                 void __YYAPI CleanupTaskQueue() noexcept;
 

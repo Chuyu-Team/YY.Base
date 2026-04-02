@@ -322,15 +322,13 @@ namespace YY
                 }
             }
 
-            HRESULT __YYAPI ThreadTaskRunnerImpl::SetWaitInternal(RefPtr<Wait> _pTask)
+            HRESULT __YYAPI ThreadTaskRunnerImpl::SetWaitInternal(RefPtr<WaitAsyncOperation> _pTask)
             {
                 if (_pTask == nullptr || _pTask->hHandle == NULL)
                     return E_INVALIDARG;
 
-                _pTask->hr = E_PENDING;
                 if (_pTask->IsCanceled())
                 {
-                    _pTask->Wakeup(YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED));
                     return YY::Base::HRESULT_From_LSTATUS(ERROR_CANCELLED);
                 }
 
@@ -353,7 +351,7 @@ namespace YY
                 }
             }
 
-            HRESULT __YYAPI ThreadTaskRunnerImpl::DeleteWaitInternal(Wait* _pTask)
+            HRESULT __YYAPI ThreadTaskRunnerImpl::DeleteWaitInternal(WaitAsyncOperation* _pTask)
             {
                 if (TaskRunner::GetCurrent() == this)
                 {
@@ -373,12 +371,6 @@ namespace YY
             {
                 if(_pTimerTask)
                     _pTimerTask->operator()();
-            }
-
-            void __YYAPI ThreadTaskRunnerImpl::DispatchWaitTask(RefPtr<Wait> _pWaitTask)
-            {
-                if(_pWaitTask)
-                    _pWaitTask->operator()();
             }
 
             void __YYAPI ThreadTaskRunnerImpl::operator()()
