@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <type_traits>
 #include <functional>
+#include <utility>
 
 #include <YY/Base/YY.h>
 #include <YY/Base/Memory/RefPtr.h>
@@ -242,7 +243,7 @@ namespace YY
                 /// <typeparam name="ResultType_">任务结果类型。</typeparam>
                 /// <param name="_pfnAsyncCallback">异步回调函数。</param>
                 /// <returns>返回一个表示异步操作的任务对象。</returns>
-                template<typename AsyncCallbackType_, typename ResultType_ = typename FunctionTraits<AsyncCallbackType_>::ReturnType>
+                template<typename AsyncCallbackType_, typename ResultType_ = decltype(std::declval<AsyncCallbackType_>()())>
                 Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback)
                 {
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
@@ -265,7 +266,7 @@ namespace YY
                 /// <param name="_uAfter">需要延迟执行的时间</param> 
                 /// <param name="_pfnAsyncCallback">需要异步执行的回调函数。</param>
                 /// <returns>返回一个表示异步操作的任务对象。</returns>
-                template<typename AsyncCallbackType_, typename ResultType_ = typename FunctionTraits<AsyncCallbackType_>::ReturnType>
+                template<typename AsyncCallbackType_, typename ResultType_ = decltype(std::declval<AsyncCallbackType_>()())>
                 Task<ResultType_> __YYAPI CreateDelayTask(_In_ TimeSpan _uAfter, AsyncCallbackType_&& _pfnAsyncCallback)
                 {
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;

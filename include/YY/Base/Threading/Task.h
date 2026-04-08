@@ -34,6 +34,18 @@ namespace YY
             struct Promise;
 #endif
 
+            template<typename CallbackType, typename... Args>
+            struct InvokeResultTraits
+            {
+                using ResultType = decltype(std::declval<CallbackType>()(std::declval<Args>()...));
+            };
+
+            template<typename CallbackType>
+            struct InvokeResultTraits<CallbackType, void>
+            {
+                using ResultType = decltype(std::declval<CallbackType>()());
+            };
+
             template<typename ResultType_>
             class Task
             {
@@ -94,7 +106,7 @@ namespace YY
                 }
 #endif
 
-                template<typename ContinueCallback, typename ContinueResultType_ = typename FunctionTraits<ContinueCallback>::ReturnType>
+                template<typename ContinueCallback, typename ContinueResultType_ = InvokeResultTraits<ContinueCallback, ResultType>::ResultType>
                 Task<ContinueResultType_> __YYAPI Then(_In_ TaskRunner* _pResumeTaskRunner, _In_ ContinueCallback&& pfnTaskCallback)
                 {
                     using ContinueCallbackType = typename std::decay<ContinueCallback>::type;
@@ -110,7 +122,7 @@ namespace YY
                     return Task<ContinueResultType_>(_pTaskContinueAsyncOperation);
                 }
 
-                template<typename ContinueCallback, typename ContinueResultType_ = typename FunctionTraits<ContinueCallback>::ReturnType>
+                template<typename ContinueCallback, typename ContinueResultType_ = InvokeResultTraits<ContinueCallback, ResultType>::ResultType>
                 Task<ContinueResultType_> __YYAPI Then(_In_ ContinueCallback&& pfnTaskCallback)
                 {
                     return Then(TaskRunner::GetCurrent(), std::forward<ContinueCallback>(pfnTaskCallback));
