@@ -95,7 +95,25 @@ namespace YY
 
                 static AsyncFile __YYAPI Open(_In_z_ const uchar_t* _szFilePath, _In_ Access _eAccess, _In_ ShareMode _eShareMode = ShareMode::None) noexcept
                 {
-                    auto _hFile = CreateFileW(_szFilePath, static_cast<DWORD>(_eAccess), static_cast<DWORD>(_eShareMode), nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+                    return CreateFileW(_szFilePath, static_cast<DWORD>(_eAccess), static_cast<DWORD>(_eShareMode), nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+                }
+
+                static AsyncFile WINAPI CreateFileW(
+                    _In_ LPCWSTR _szFilePath,
+                    _In_ DWORD dwDesiredAccess,
+                    _In_ DWORD dwShareMode,
+                    _In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                    _In_ DWORD dwCreationDisposition,
+                    _In_ DWORD dwFlagsAndAttributes,
+                    _In_opt_ HANDLE hTemplateFile) noexcept
+                {
+                    if ((dwFlagsAndAttributes & FILE_FLAG_OVERLAPPED) == 0)
+                    {
+                        SetLastError(ERROR_INVALID_PARAMETER);
+                        return AsyncFile();
+                    }
+
+                    auto _hFile = ::CreateFileW(_szFilePath, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 
                     if (_hFile != INVALID_HANDLE_VALUE)
                     {
