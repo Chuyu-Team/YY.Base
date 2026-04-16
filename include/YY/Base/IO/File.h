@@ -295,7 +295,7 @@ namespace YY
                     _In_ DWORD _cbOutBufferSize,
                     _In_ DWORD _cbInBufferSize,
                     _In_ DWORD _uDefaultTimeOut,
-                    _In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes = nullptr)
+                    _In_opt_ LPSECURITY_ATTRIBUTES _pSecurityAttributes = nullptr)
                 {
                     auto hPipe = CreateNamedPipeW(
                         _szPipeName,
@@ -305,7 +305,7 @@ namespace YY
                         _cbOutBufferSize,
                         _cbInBufferSize,
                         _uDefaultTimeOut,
-                        nullptr);
+                        _pSecurityAttributes);
 
                     if (hPipe != INVALID_HANDLE_VALUE)
                     {
