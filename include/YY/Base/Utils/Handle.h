@@ -34,6 +34,76 @@ namespace YY
                     return S_OK;
                 }
             };
+
+            struct Win32FileHandleTraits
+            {
+                using HandleType = HANDLE;
+
+                static constexpr HandleType khInvalidHandle = INVALID_HANDLE_VALUE;
+
+                static inline HRESULT __YYAPI CloseHandle(HandleType _hHandle)
+                {
+                    if (!::CloseHandle(_hHandle))
+                        return __HRESULT_FROM_WIN32(GetLastError());
+
+                    return S_OK;
+                }
+
+                // 可选实现 DuplicateHandle 方法以支持复制句柄功能
+                static inline HRESULT __YYAPI DuplicateHandle(HandleType _hHandle, HandleType* _phNewHandle)
+                {
+                    if (!::DuplicateHandle(GetCurrentProcess(), _hHandle, GetCurrentProcess(), _phNewHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+                        return __HRESULT_FROM_WIN32(GetLastError());
+
+                    return S_OK;
+                }
+            };
+
+            struct Win32RegistryHandleTraits
+            {
+                using HandleType = HKEY;
+
+                static constexpr HandleType khInvalidHandle = NULL;
+
+                static inline HRESULT __YYAPI CloseHandle(HandleType _hHandle)
+                {
+                    if (!::RegCloseKey(_hHandle))
+                        return __HRESULT_FROM_WIN32(GetLastError());
+
+                    return S_OK;
+                }
+
+                // 可选实现 DuplicateHandle 方法以支持复制句柄功能
+                static inline HRESULT __YYAPI DuplicateHandle(HandleType _hHandle, HandleType* _phNewHandle)
+                {
+                    // 伪句柄
+                    if (intptr_t(_hHandle) < 0)
+                    {
+                        *_phNewHandle = _hHandle;
+                        return S_OK;
+                    }
+
+                    if (!::DuplicateHandle(GetCurrentProcess(), _hHandle, GetCurrentProcess(), (LPHANDLE)_phNewHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+                        return __HRESULT_FROM_WIN32(GetLastError());
+
+                    return S_OK;
+                }
+            };
+
+            struct Win32FindHandleTraits
+            {
+                using HandleType = HANDLE;
+
+                static constexpr HandleType khInvalidHandle = INVALID_HANDLE_VALUE;
+
+                static inline HRESULT __YYAPI CloseHandle(HandleType _hHandle)
+                {
+                    if (!::FindClose(_hHandle))
+                        return __HRESULT_FROM_WIN32(GetLastError());
+
+                    return S_OK;
+                }
+            };
 #endif
 
             /// <summary>
