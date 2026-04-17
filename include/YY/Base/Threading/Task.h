@@ -60,6 +60,8 @@ namespace YY
                 YY::RefPtr<AsyncOperationType> pAsyncOperation;
 
             public:
+                constexpr Task() noexcept = default;
+
                 Task(YY::RefPtr<AsyncOperationType> _pAsyncOperation) noexcept
                     : pAsyncOperation(std::move(_pAsyncOperation))
                 {
