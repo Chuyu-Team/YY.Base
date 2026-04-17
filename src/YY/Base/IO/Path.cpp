@@ -343,7 +343,7 @@ namespace YY
                 const auto _uLastDirectorySeparatorCharIndex = _sPath.LastIndexOfAny(uStringView(kDirectorySeparatorChars, std::size(kDirectorySeparatorChars)), _sPathRoot.GetLength());
                 if(_uLastDirectorySeparatorCharIndex != kuInvalidIndex)
                 {
-                    _sPath.Slice(_uLastDirectorySeparatorCharIndex);
+                    _sPath = _sPath.Substring(0, _uLastDirectorySeparatorCharIndex);
                 }
                 else
                 {
