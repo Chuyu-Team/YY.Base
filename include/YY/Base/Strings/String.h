@@ -191,15 +191,6 @@ namespace YY
                     }
                 }
 
-                template<size_t _uArrayCount>
-                StringBase(const char_t(&_szSrc)[_uArrayCount])
-                    : szString(StringData::GetEmtpyStringData()->GetStringBuffer())
-                {
-                    auto _hr = SetString(_szSrc, _uArrayCount - 1);
-                    if (FAILED(_hr))
-                        throw Exception(_S("StringBase构造失败。"), _hr);
-                }
-
                 StringBase(const StringView& _szSrc)
                     : szString(StringData::GetEmtpyStringData()->GetStringBuffer())
                 {
@@ -395,12 +386,6 @@ namespace YY
                 HRESULT __YYAPI SetString(_In_opt_z_ const char_t* _szSrc)
                 {
                     return SetString(_szSrc, GetStringLength(_szSrc));
-                }
-
-                template<size_t _uArrayCount>
-                HRESULT __YYAPI SetString(const char_t(&_szSrc)[_uArrayCount])
-                {
-                    return SetString(_szSrc, _uArrayCount - 1);
                 }
 
                 HRESULT __YYAPI SetString(const StringBase& _szSrc)
