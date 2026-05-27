@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <YY/Base/YY.h>
+#include <YY/Base/Sync/Interlocked.h>
 
 #pragma pack(push, __YY_PACKING)
 

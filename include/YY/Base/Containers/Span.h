@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <YY/Base/YY.h>
+#include <algorithm>
 
 #pragma pack(push, __YY_PACKING)
 
