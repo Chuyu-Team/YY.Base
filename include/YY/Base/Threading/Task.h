@@ -34,6 +34,12 @@ namespace YY
             struct Promise;
 #endif
 
+            template<typename ResultType_>
+            class Task;
+
+            template<typename SourceResultType_, typename ResultType_, typename CallbackType_, typename CallbackResultType_>
+            class TaskErrorAsyncOperation;
+
             template<typename CallbackType, typename... Args>
             struct InvokeResultTraits
             {
@@ -128,6 +134,75 @@ namespace YY
                 Task<ContinueResultType_> __YYAPI Then(_In_ ContinueCallback&& pfnTaskCallback)
                 {
                     return Then(TaskRunner::GetCurrent(), std::forward<ContinueCallback>(pfnTaskCallback));
+                }
+
+                /// <summary>
+                /// 在任务进入 Error/Canceled 状态时执行恢复回调。
+                /// 回调签名：std::exception_ptr -> ResultType 或 std::exception_ptr -> Task&lt;ResultType&gt;。
+                /// </summary>
+                template<typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, std::exception_ptr>::ResultType>
+                Task<ResultType> __YYAPI ThenError(_In_ TaskRunner* _pResumeTaskRunner, _In_ ErrorCallback&& pfnTaskCallback)
+                {
+                    using ErrorCallbackType = typename std::decay<ErrorCallback>::type;
+                    static_assert(
+                        std::is_same<ErrorCallbackResultType_, ResultType>::value || std::is_same<ErrorCallbackResultType_, Task<ResultType>>::value,
+                        "ThenError callback must return ResultType or Task<ResultType>.");
+
+                    using TaskErrorAsyncOperationType = TaskErrorAsyncOperation<ResultType, ResultType, ErrorCallbackType, ErrorCallbackResultType_>;
+                    auto _pTaskErrorAsyncOperation = YY::RefPtr<TaskErrorAsyncOperationType>::Create(std::forward<ErrorCallback>(pfnTaskCallback));
+                    _pTaskErrorAsyncOperation->pResumeTaskRunnerWeak = _pResumeTaskRunner;
+                    _pTaskErrorAsyncOperation.Get()->AddRef();
+                    if (!pAsyncOperation->AddCompletedHandler(_pTaskErrorAsyncOperation))
+                    {
+                        _pTaskErrorAsyncOperation->OnCompleted(pAsyncOperation, pAsyncOperation->GetStatus());
+                    }
+                    return Task<ResultType>(_pTaskErrorAsyncOperation);
+                }
+
+                /// <summary>
+                /// 在任务进入 Error/Canceled 状态时执行恢复回调。
+                /// 回调签名：std::exception_ptr -> ResultType 或 std::exception_ptr -> Task&lt;ResultType&gt;。
+                /// </summary>
+                template<typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, std::exception_ptr>::ResultType>
+                Task<ResultType> __YYAPI ThenError(_In_ ErrorCallback&& pfnTaskCallback)
+                {
+                    return ThenError(TaskRunner::GetCurrent(), std::forward<ErrorCallback>(pfnTaskCallback));
+                }
+
+                /// <summary>
+                /// 按异常类型筛选错误处理器，不匹配时继续传播原异常。
+                /// 回调签名：const ExceptionType&amp; -> ResultType 或 const ExceptionType&amp; -> Task&lt;ResultType&gt;。
+                /// </summary>
+                template<typename ExceptionType, typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, const ExceptionType&>::ResultType>
+                Task<ResultType> __YYAPI ThenErrorIf(_In_ TaskRunner* _pResumeTaskRunner, _In_ ErrorCallback&& pfnTaskCallback)
+                {
+                    return ThenError(
+                        _pResumeTaskRunner,
+                        [_pfnFilterCallback = typename std::decay<ErrorCallback>::type(std::forward<ErrorCallback>(pfnTaskCallback))](std::exception_ptr _eptr) mutable -> ErrorCallbackResultType_
+                        {
+                            try
+                            {
+                                std::rethrow_exception(_eptr);
+                            }
+                            catch (const ExceptionType& _oException)
+                            {
+                                return _pfnFilterCallback(_oException);
+                            }
+                            catch (...)
+                            {
+                                std::rethrow_exception(_eptr);
+                            }
+                        });
+                }
+
+                /// <summary>
+                /// 按异常类型筛选错误处理器，不匹配时继续传播原异常。
+                /// 回调签名：const ExceptionType&amp; -> ResultType 或 const ExceptionType&amp; -> Task&lt;ResultType&gt;。
+                /// </summary>
+                template<typename ExceptionType, typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, const ExceptionType&>::ResultType>
+                Task<ResultType> __YYAPI ThenErrorIf(_In_ ErrorCallback&& pfnTaskCallback)
+                {
+                    return ThenErrorIf<ExceptionType>(TaskRunner::GetCurrent(), std::forward<ErrorCallback>(pfnTaskCallback));
                 }
             };
 
@@ -321,7 +396,12 @@ namespace YY
                     }
                     catch (const YY::Exception& _oEx)
                     {
-                        this->SetErrorCode(_oEx.GetErrorCode());
+                        this->SetExceptionPtr(std::current_exception(), _oEx.GetErrorCode());
+                        return false;
+                    }
+                    catch (...)
+                    {
+                        this->SetExceptionPtr(std::current_exception(), E_FAIL);
                         return false;
                     }
                     return true;
@@ -357,7 +437,12 @@ namespace YY
                     }
                     catch (const YY::Exception& _oEx)
                     {
-                        this->SetErrorCode(_oEx.GetErrorCode());
+                        this->SetExceptionPtr(std::current_exception(), _oEx.GetErrorCode());
+                        return false;
+                    }
+                    catch (...)
+                    {
+                        this->SetExceptionPtr(std::current_exception(), E_FAIL);
                         return false;
                     }
                     return true;
@@ -384,11 +469,17 @@ namespace YY
                     auto _pThis = YY::RefPtr<TaskContinueAsyncOperation>::FromPtr(this);
                     if (_eStatus != AsyncStatus::Completed)
                     {
-                        this->SetErrorCode(_pAsyncInfo->GetErrorCode());
+                        this->SetExceptionPtr(_pAsyncInfo->GetExceptionPtr(), _pAsyncInfo->GetErrorCode());
                         return;
                     }
 
                     auto _pResumeTaskRunner = this->pResumeTaskRunnerWeak.Get();
+                    if (this->pResumeTaskRunnerWeak == nullptr || _pResumeTaskRunner == TaskRunner::GetCurrent())
+                    {
+                        this->Resume(_pAsyncInfo->GetResult());
+                        return;
+                    }
+
                     if (!_pResumeTaskRunner)
                     {
                         this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
@@ -423,11 +514,17 @@ namespace YY
                     auto _pThis = YY::RefPtr<TaskContinueAsyncOperation>::FromPtr(this);
                     if (_eStatus != AsyncStatus::Completed)
                     {
-                        this->SetErrorCode(_pAsyncInfo->GetErrorCode());
+                        this->SetExceptionPtr(_pAsyncInfo->GetExceptionPtr(), _pAsyncInfo->GetErrorCode());
                         return;
                     }
 
                     auto _pResumeTaskRunner = this->pResumeTaskRunnerWeak.Get();
+                    if (this->pResumeTaskRunnerWeak == nullptr || _pResumeTaskRunner == TaskRunner::GetCurrent())
+                    {
+                        this->Resume();
+                        return;
+                    }
+
                     if (!_pResumeTaskRunner)
                     {
                         this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
@@ -439,6 +536,159 @@ namespace YY
                         {
                             _pThis->Resume();
                         });
+                }
+            };
+
+            template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
+            class TaskErrorAsyncOperation<SourceResultType_, ResultType_, CallbackType_, ResultType_>
+                : public TaskAsyncOperation<CallbackType_, ResultType_>
+                , public AsyncOperationCompletedHandler<SourceResultType_>
+            {
+            public:
+                using SourceResultType = SourceResultType_;
+                using ResultType = ResultType_;
+
+                static_assert(std::is_same<SourceResultType, ResultType>::value, "ThenError requires source/result type consistency.");
+
+                TaskErrorAsyncOperation(CallbackType_&& _pfnTaskCallback)
+                    : TaskAsyncOperation<CallbackType_, ResultType_>(std::move(_pfnTaskCallback))
+                {
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    auto _pThis = YY::RefPtr<TaskErrorAsyncOperation>::FromPtr(this);
+
+                    if (_eStatus == AsyncStatus::Completed)
+                    {
+                        if (!this->Resolve(_pAsyncInfo))
+                        {
+                            this->SetErrorCode(E_FAIL);
+                        }
+                        return;
+                    }
+
+                    auto _eptr = AsyncInfo::CreateExceptionPtr(_pAsyncInfo, _eStatus);
+                    auto _pResumeTaskRunner = this->pResumeTaskRunnerWeak.Get();
+                    if (_pResumeTaskRunner == nullptr || _pResumeTaskRunner == TaskRunner::GetCurrent())
+                    {
+                        this->Resume(_eptr);
+                        return;
+                    }
+
+                    _pResumeTaskRunner->PostTask(
+                        [_pThis, _eptr]()
+                        {
+                            _pThis->Resume(_eptr);
+                        });
+                }
+            };
+
+            template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
+            class TaskErrorAsyncOperation<SourceResultType_, ResultType_, CallbackType_, Task<ResultType_>>
+                : public AsyncOperationImpl<ResultType_>
+                , public AsyncOperationCompletedHandler<SourceResultType_>
+            {
+            public:
+                using SourceResultType = SourceResultType_;
+                using ResultType = ResultType_;
+                using CallbackType = CallbackType_;
+
+                static_assert(std::is_same<SourceResultType, ResultType>::value, "ThenError requires source/result type consistency.");
+
+                class BridgeCompletedHandler : public AsyncOperationCompletedHandler<ResultType>
+                {
+                public:
+                    YY::RefPtr<TaskErrorAsyncOperation> pOwner;
+
+                    void __YYAPI OnCompleted(AsyncOperation<ResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
+                    {
+                        auto _pOwner = std::move(pOwner);
+                        if (!_pOwner)
+                        {
+                            return;
+                        }
+
+                        if (_eStatus == AsyncStatus::Completed)
+                        {
+                            if (!_pOwner->Resolve(_pAsyncInfo))
+                            {
+                                _pOwner->SetErrorCode(E_FAIL);
+                            }
+                            return;
+                        }
+
+                        _pOwner->SetExceptionPtr(_pAsyncInfo->GetExceptionPtr(), _pAsyncInfo->GetErrorCode());
+                    }
+                };
+
+                WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
+                CallbackType pfnTaskCallback;
+                BridgeCompletedHandler oBridgeCompletedHandler;
+
+                TaskErrorAsyncOperation(CallbackType&& _pfnTaskCallback)
+                    : pfnTaskCallback(std::move(_pfnTaskCallback))
+                {
+                }
+
+                void __YYAPI OnCompleted(AsyncOperation<SourceResultType>* _pAsyncInfo, AsyncStatus _eStatus) override
+                {
+                    auto _pThis = YY::RefPtr<TaskErrorAsyncOperation>::FromPtr(this);
+
+                    if (_eStatus == AsyncStatus::Completed)
+                    {
+                        if (!this->Resolve(_pAsyncInfo))
+                        {
+                            this->SetErrorCode(E_FAIL);
+                        }
+                        return;
+                    }
+
+                    auto _eptr = AsyncInfo::CreateExceptionPtr(_pAsyncInfo, _eStatus);
+                    auto _pResumeTaskRunner = pResumeTaskRunnerWeak.Get();
+                    if (_pResumeTaskRunner == nullptr || _pResumeTaskRunner == TaskRunner::GetCurrent())
+                    {
+                        this->Resume(_eptr);
+                        return;
+                    }
+                    
+                    _pResumeTaskRunner->PostTask(
+                        [_pThis, _eptr]()
+                        {
+                            _pThis->Resume(_eptr);
+                        });
+                }
+
+                bool __YYAPI Resume(std::exception_ptr _eptr)
+                {
+                    try
+                    {
+                        auto _oTask = pfnTaskCallback(_eptr);
+                        auto _pAsyncOperation = _oTask.GetAsyncOperation();
+                        if (!_pAsyncOperation)
+                        {
+                            this->SetErrorCode(E_FAIL);
+                            return false;
+                        }
+
+                        oBridgeCompletedHandler.pOwner = YY::RefPtr<TaskErrorAsyncOperation>(this);
+                        if (!_pAsyncOperation->AddCompletedHandler(&oBridgeCompletedHandler))
+                        {
+                            oBridgeCompletedHandler.OnCompleted(_pAsyncOperation, _pAsyncOperation->GetStatus());
+                        }
+                    }
+                    catch (const YY::Exception& _oEx)
+                    {
+                        this->SetExceptionPtr(std::current_exception(), _oEx.GetErrorCode());
+                        return false;
+                    }
+                    catch (...)
+                    {
+                        this->SetExceptionPtr(std::current_exception(), E_FAIL);
+                        return false;
+                    }
+
+                    return true;
                 }
             };
 
@@ -477,11 +727,11 @@ namespace YY
                     }
                     catch (const YY::Exception& _oEx)
                     {
-                        pAsyncOperation->SetErrorCode(_oEx.GetErrorCode());
+                        pAsyncOperation->SetExceptionPtr(std::current_exception(), _oEx.GetErrorCode());
                     }
                     catch (...)
                     {
-                        pAsyncOperation->SetErrorCode(E_FAIL);
+                        pAsyncOperation->SetExceptionPtr(std::current_exception(), E_FAIL);
                     }
                 }
             };
@@ -526,11 +776,11 @@ namespace YY
                     }
                     catch (const YY::Exception& _oEx)
                     {
-                        pAsyncOperation->SetErrorCode(_oEx.GetErrorCode());
+                        pAsyncOperation->SetExceptionPtr(std::current_exception(), _oEx.GetErrorCode());
                     }
                     catch (...)
                     {
-                        pAsyncOperation->SetErrorCode(E_FAIL);
+                        pAsyncOperation->SetExceptionPtr(std::current_exception(), E_FAIL);
                     }
                 }
             };

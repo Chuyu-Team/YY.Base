@@ -1097,6 +1097,171 @@ namespace TaskRunnerUnitTest
             Assert::AreEqual(HRESULT(8848), HRESULT(*_pHr));
         }
 
+        TEST_METHOD(ThenError语义)
+        {
+            auto _pTaskRunner = SequencedTaskRunner::Create();
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    })
+                    .ThenError(
+                    _pTaskRunner,
+                    [](std::exception_ptr _eptr) -> int
+                    {
+                        try
+                        {
+                            std::rethrow_exception(_eptr);
+                        }
+                        catch (const YY::Exception& _oEx)
+                        {
+                            Assert::AreEqual(HRESULT(E_ACCESSDENIED), _oEx.GetErrorCode());
+                        }
+
+                        return 100;
+                    });
+
+                Assert::AreEqual(int(100), _Task.GetResult());
+            }
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    })
+                    .ThenError(
+                        _pTaskRunner,
+                        [](std::exception_ptr _eptr) -> int
+                        {
+                            try
+                            {
+                                std::rethrow_exception(_eptr);
+                            }
+                            catch (const YY::Exception& _oEx)
+                            {
+                                Assert::AreEqual(HRESULT(E_ACCESSDENIED), _oEx.GetErrorCode());
+                            }
+
+                            return 100;
+                        })
+                    .Then(
+                        [](int Value)
+                        {
+                            return Value * 2;
+                        });
+
+                Assert::AreEqual(int(200), _Task.GetResult());
+            }
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    })
+                    .ThenError(
+                    _pTaskRunner,
+                    [_pTaskRunner](std::exception_ptr _eptr) -> Task<int>
+                    {
+                        return _pTaskRunner->CreateTask(
+                            [_eptr]() -> int
+                            {
+                                std::rethrow_exception(_eptr);
+                                return 0;
+                            });
+                    }).ThenError(
+                        _pTaskRunner,
+                        [](std::exception_ptr _eptr) -> int
+                        {
+                            try
+                            {
+                                std::rethrow_exception(_eptr);
+                            }
+                            catch (const YY::Exception& _oEx)
+                            {
+                                Assert::AreEqual(HRESULT(E_ACCESSDENIED), _oEx.GetErrorCode());
+                            }
+
+                            return 200;
+                        });
+
+                Assert::AreEqual(int(200), _Task.GetResult());
+            }
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    })
+                    .ThenErrorIf<YY::OperationCanceledException>(
+                        _pTaskRunner,
+                        [](const YY::OperationCanceledException&) -> int
+                        {
+                            return 10;
+                        })
+                    .ThenErrorIf<YY::Exception>(
+                        _pTaskRunner,
+                        [](const YY::Exception& _oEx) -> int
+                        {
+                            Assert::AreEqual(HRESULT(E_ACCESSDENIED), _oEx.GetErrorCode());
+                            return 300;
+                        });
+
+                Assert::AreEqual(int(300), _Task.GetResult());
+            }
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::Exception(E_ACCESSDENIED);
+                    })
+                    .ThenError(
+                    _pTaskRunner,
+                    [](std::exception_ptr _eptr) -> int
+                    {
+                        std::rethrow_exception(_eptr);
+                        return 0;
+                    }).ThenError(
+                        _pTaskRunner,
+                        [](std::exception_ptr _eptr) -> int
+                        {
+                            try
+                            {
+                                std::rethrow_exception(_eptr);
+                            }
+                            catch (const YY::Exception& _oEx)
+                            {
+                                Assert::AreEqual(HRESULT(E_ACCESSDENIED), _oEx.GetErrorCode());
+                            }
+
+                            return 400;
+                        });
+
+                Assert::AreEqual(int(400), _Task.GetResult());
+            }
+
+            {
+                auto _Task = _pTaskRunner->CreateTask(
+                    []() -> int
+                    {
+                        throw YY::OperationCanceledException(_S("cancel"));
+                    })
+                    .ThenErrorIf<YY::OperationCanceledException>(
+                    _pTaskRunner,
+                    [](const YY::OperationCanceledException&) -> int
+                    {
+                        return 500;
+                    });
+
+                Assert::AreEqual(int(500), _Task.GetResult());
+            }
+        }
+
         TEST_METHOD(WhenAll语义)
         {
             auto _pTaskRunner = SequencedTaskRunner::Create();
