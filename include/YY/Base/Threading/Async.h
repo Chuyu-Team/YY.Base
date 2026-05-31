@@ -5,6 +5,7 @@
 #include <YY/Base/Sync/SRWLock.h>
 #include <YY/Base/Sync/AutoLock.h>
 #include <YY/Base/Containers/Optional.h>
+#include <exception>
 
 #pragma pack(push, __YY_PACKING)
 
@@ -132,6 +133,7 @@ namespace YY
             protected:
                 volatile HRESULT hr = E_PENDING;
                 volatile AsyncStatus eStatus = AsyncStatus::Started;
+                std::exception_ptr eptr;
 
             public:
                 AsyncInfo() = default;
@@ -146,6 +148,46 @@ namespace YY
                 HRESULT __YYAPI GetErrorCode() const noexcept
                 {
                     return hr;
+                }
+
+                std::exception_ptr __YYAPI GetExceptionPtr() const noexcept
+                {
+                    return eptr;
+                }
+
+                static std::exception_ptr __YYAPI CreateExceptionPtr(_In_opt_ AsyncInfo* _pAsyncInfo, AsyncStatus _eStatus)
+                {
+                    if (_eStatus == AsyncStatus::Error && _pAsyncInfo)
+                    {
+                        auto _eptr = _pAsyncInfo->GetExceptionPtr();
+                        if (_eptr)
+                        {
+                            return _eptr;
+                        }
+                    }
+
+                    try
+                    {
+                        if (_pAsyncInfo)
+                        {
+                            _pAsyncInfo->ThrowIfWaitTaskFailed();
+                        }
+                        else
+                        {
+                            if (_eStatus == AsyncStatus::Canceled)
+                            {
+                                throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
+                            }
+
+                            throw YY::Exception(E_FAIL);
+                        }
+                    }
+                    catch (...)
+                    {
+                        return std::current_exception();
+                    }
+
+                    return nullptr;
                 }
 
                 AsyncStatus __YYAPI GetStatus() const noexcept
@@ -214,8 +256,15 @@ namespace YY
                         throw YY::OperationCanceledException(_S("异步任务已经被取消。"));
                         break;
                     case AsyncStatus::Error:
+                    {
+                        auto _eptr = this->GetExceptionPtr();
+                        if (_eptr)
+                        {
+                            std::rethrow_exception(_eptr);
+                        }
                         throw YY::Exception(this->GetErrorCode());
                         break;
+                    }
                     default:
                         throw YY::Exception(_S("异步任务状态不符合预期。"), E_FAIL);
                         break;
@@ -239,6 +288,24 @@ namespace YY
                     {
                         return false;
                     }
+
+                    if (_hr == E_PENDING || _hr == S_OK)
+                    {
+                        _hr = E_UNEXPECTED;
+                    }
+
+                    NotifyCompletedHandlers(_hr);
+                    return true;
+                }
+
+                bool __YYAPI SetExceptionPtr(std::exception_ptr _eptr, HRESULT _hr)
+                {
+                    if ((AsyncStatus)YY::Sync::CompareExchange(reinterpret_cast<volatile uint32_t*>(&eStatus), uint32_t(AsyncStatus::Error), uint32_t(AsyncStatus::Started)) != AsyncStatus::Started)
+                    {
+                        return false;
+                    }
+
+                    eptr = std::move(_eptr);
 
                     if (_hr == E_PENDING || _hr == S_OK)
                     {
@@ -414,6 +481,11 @@ namespace YY
                     return oResult;
                 }
 
+                bool __YYAPI Resolve(_In_ AsyncOperation<ResultType_>* _pAsyncOperation)
+                {
+                    return Resolve(_pAsyncOperation->GetResult());
+                }
+
                 bool __YYAPI Resolve(const ResultType& _oResult)
                 {
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
@@ -443,6 +515,11 @@ namespace YY
                 {
                     return AsyncOperation<ResultType>::SetErrorCode(_hr);
                 }
+
+                bool __YYAPI SetExceptionPtr(std::exception_ptr _eptr, HRESULT _hr)
+                {
+                    return AsyncOperation<ResultType>::SetExceptionPtr(std::move(_eptr), _hr);
+                }
             };
 
             template<>
@@ -462,6 +539,12 @@ namespace YY
                     return;
                 }
 
+                bool __YYAPI Resolve(_In_ AsyncOperation<void>* _pAsyncOperation)
+                {
+                    _pAsyncOperation->GetResult();
+                    return Resolve();
+                }
+
                 bool __YYAPI Resolve(void)
                 {
                     if (!AsyncOperation<ResultType>::BeginNotifyCompletedHandlers(AsyncStatus::Completed))
@@ -476,6 +559,11 @@ namespace YY
                 bool __YYAPI SetErrorCode(HRESULT _hr)
                 {
                     return AsyncOperation<ResultType>::SetErrorCode(_hr);
+                }
+
+                bool __YYAPI SetExceptionPtr(std::exception_ptr _eptr, HRESULT _hr)
+                {
+                    return AsyncOperation<ResultType>::SetExceptionPtr(std::move(_eptr), _hr);
                 }
             };
 
