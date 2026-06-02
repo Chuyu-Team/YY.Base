@@ -301,7 +301,7 @@ namespace YY
 
                 // ANSI转UTF16，其缓冲区不会多于当前UTF16字节数量
                 auto _szDstBuffer = _pszDst->LockBuffer(_cchOldDst + _cchSrc);
-                if (!_pszDst)
+                if (!_szDstBuffer)
                     return E_OUTOFMEMORY;
                 _szDstBuffer += _cchOldDst;
 
@@ -317,7 +317,7 @@ namespace YY
                 if (!_pszDst)
                     return E_POINTER;
 
-                if (_szSrc.GetSize())
+                if (_szSrc.GetSize() == 0)
                     return S_OK;
 
                 u16String _szTmp;
