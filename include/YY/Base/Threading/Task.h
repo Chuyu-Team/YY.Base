@@ -342,8 +342,9 @@ namespace YY
                         }
 
                         // 已经存在成功的任务，开始回滚 CompletedHandler
-                        for (; _iIndex;--_iIndex)
+                        for (; _iIndex;)
                         {
+                            --_iIndex;
                             auto _pAsyncOperation = pAsyncOperations[_iIndex];
                             if (!_pAsyncOperation)
                             {
