@@ -113,7 +113,7 @@ namespace YY
                     return p == nullptr || p->IsExpired();
                 }
 
-                _Ret_maybenull_ __YYAPI operator _Type* () const noexcept
+                _Ret_maybenull_ __YYAPI operator RefPtr<_Type>() const noexcept
                 {
                     return Get();
                 }
