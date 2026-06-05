@@ -144,6 +144,10 @@ namespace YY
                     {
                         pFirst = _pEntry;
                     }
+                    else
+                    {
+                        _pEntry->pPrior->pNext = _pEntry;
+                    }
                 }
 
                 void __YYAPI Insert(_In_ EntryType* _pEntry) noexcept
