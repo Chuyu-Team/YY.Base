@@ -203,9 +203,9 @@ namespace YY
                         return S_OK;
                     }
 
-                    uint32_t _uTargetValye = TerminateTaskRunnerRaw;
-                    static_assert(sizeof(TaskRunnerFlags.uWakeupCountAndPushLock) == sizeof(_uTargetValye), "");
-                    if (!WaitEqualOnAddress(&TaskRunnerFlags.uWakeupCountAndPushLock, &_uTargetValye, sizeof(_uTargetValye), _nWaitTimeOut))
+                    uint32_t _uTargetValue = TerminateTaskRunnerRaw;
+                    static_assert(sizeof(TaskRunnerFlags.uWakeupCountAndPushLock) == sizeof(_uTargetValue), "");
+                    if (!WaitEqualOnAddress(&TaskRunnerFlags.uWakeupCountAndPushLock, &_uTargetValue, sizeof(_uTargetValue), _nWaitTimeOut))
                     {
                         return __HRESULT_FROM_WIN32(ERROR_TIMEOUT);
                     }
