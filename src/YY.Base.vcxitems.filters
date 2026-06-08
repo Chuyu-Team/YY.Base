@@ -79,6 +79,18 @@
     <Filter Include="源文件\YY\Base\Time">
       <UniqueIdentifier>{c1cc024f-013f-4121-ac07-1c108bb052ec}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\YY\Base\Security">
+      <UniqueIdentifier>{a1856d0a-23c4-4e17-90b5-5ead9f27dadd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\YY\Base\Process">
+      <UniqueIdentifier>{7c53cbb9-f90f-4e2e-9323-9f631d95a3d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\YY\Base\Process">
+      <UniqueIdentifier>{ca7acf27-4769-4a55-b934-d134a86dee5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\YY\Base\Security">
+      <UniqueIdentifier>{61bec24a-91da-40c9-a6eb-ac1308780cb2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)\YY\Base\Strings\StringTransform.cpp">
@@ -131,6 +143,12 @@
     </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\IO\File.cpp">
       <Filter>源文件\YY\Base\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Process\Process.cpp">
+      <Filter>源文件\YY\Base\Process</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)YY\Base\Security\Token.cpp">
+      <Filter>源文件\YY\Base\Security</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -331,6 +349,15 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Functional\Delegate.h">
       <Filter>头文件\YY\Base\Functional</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Process\Process.h">
+      <Filter>头文件\YY\Base\Process</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Security\ThreadImpersonationScope.h">
+      <Filter>头文件\YY\Base\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\include\YY\Base\Security\Token.h">
+      <Filter>头文件\YY\Base\Security</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
