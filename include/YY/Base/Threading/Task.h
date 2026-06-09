@@ -614,7 +614,7 @@ namespace YY
 
                 static_assert(std::is_same<SourceResultType, ResultType>::value, "ThenError requires source/result type consistency.");
 
-                class BridgeCompletedHandler : public AsyncOperationCompletedHandler<ResultType>
+                class BridgeCompletedHandler : public YY::Base::Threading::AsyncOperationCompletedHandler<ResultType>
                 {
                 public:
                     YY::RefPtr<TaskErrorAsyncOperation> pOwner;
