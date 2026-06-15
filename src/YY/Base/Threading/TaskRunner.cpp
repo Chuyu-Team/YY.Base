@@ -182,17 +182,10 @@ namespace YY
 
             Task<HRESULT> __YYAPI TaskRunner::SleepAsync(_In_ TimeSpan _uAfter, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken)
             {
-                class SleepAsyncOperation : public AsyncOperationImpl<HRESULT>
-                {
-                public:
-                    SleepAsyncOperation(YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
-                        : AsyncOperationImpl<HRESULT>(std::move(_pCancellationToken))
-                    {
-                    }
-                };
+                auto _uExpire = TickCount::GetNow() + _uAfter;
 
-                auto _pSleepAsyncOperation = YY::RefPtr<SleepAsyncOperation>::Create(_pCancellationToken);
-
+                using TaskAsyncOperation = AsyncOperationImpl<HRESULT>;
+                auto _pSleepAsyncOperation = YY::RefPtr<TaskAsyncOperation>::Create(_pCancellationToken);
                 if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
                 {
                     _pSleepAsyncOperation->Cancel();
@@ -206,10 +199,42 @@ namespace YY
                     return Task<HRESULT>(std::move(_pSleepAsyncOperation));
                 }
 
-                _pTaskRunner->PostDelayTask(_uAfter, [_pSleepAsyncOperation]() mutable
+                class CreateDelayTaskEntry : public Timer
+                {
+                public:
+                    YY::RefPtr<TaskAsyncOperation> pAsyncOperation;
+
+                    ~CreateDelayTaskEntry()
                     {
-                        _pSleepAsyncOperation->Resolve(S_OK);
-                    });
+                        if (pAsyncOperation)
+                        {
+                            pAsyncOperation->Cancel();
+                        }
+                    }
+
+                    HRESULT __YYAPI RunTask() override
+                    {
+                        pAsyncOperation->Resolve(S_OK);
+                        pAsyncOperation.Reset();
+                        return S_OK;
+                    }
+                };
+
+                YY::RefPtr<CreateDelayTaskEntry> _pCreateDelayTaskEntry = YY::RefPtr<CreateDelayTaskEntry>::Create();
+                if (!_pCreateDelayTaskEntry)
+                {
+                    _pSleepAsyncOperation->Resolve(E_OUTOFMEMORY);
+                    return Task<HRESULT>(std::move(_pSleepAsyncOperation));
+                }
+
+                _pCreateDelayTaskEntry->uExpire = _uExpire;
+                _pCreateDelayTaskEntry->pAsyncOperation = _pSleepAsyncOperation;
+
+                auto _hr = _pTaskRunner->SetTimerInternal(std::move(_pCreateDelayTaskEntry));
+                if (FAILED(_hr))
+                {
+                    _pSleepAsyncOperation->Resolve(_hr);
+                }
 
                 return Task<HRESULT>(std::move(_pSleepAsyncOperation));
             }

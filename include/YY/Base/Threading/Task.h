@@ -20,6 +20,7 @@ namespace YY
         namespace Threading
         {
             class TaskRunner;
+            struct TaskEntry;
 
             template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
             class TaskContinueAsyncOperation;
@@ -115,6 +116,12 @@ namespace YY
                 }
 #endif
 
+                /// <summary>
+                /// 在任务成功完成时执行 pfnTaskCallback 回调。
+                /// </summary>
+                /// <param name="_pResumeTaskRunner">用于继续执行回调的任务运行器。</param>
+                /// <param name="pfnTaskCallback">任务完成后要执行的回调函数。</param>
+                /// <returns>返回一个新的任务，该任务表示继续回调的结果。</returns>
                 template<typename ContinueCallback, typename ContinueResultType_ = InvokeResultTraits<ContinueCallback, ResultType>::ResultType>
                 Task<ContinueResultType_> __YYAPI Then(_In_ TaskRunner* _pResumeTaskRunner, _In_ ContinueCallback&& pfnTaskCallback)
                 {
@@ -131,6 +138,11 @@ namespace YY
                     return Task<ContinueResultType_>(_pTaskContinueAsyncOperation);
                 }
 
+                /// <summary>
+                /// 在任务成功完成时执行 pfnTaskCallback 回调。
+                /// </summary>
+                /// <param name="pfnTaskCallback">任务完成后要执行的回调函数。</param>
+                /// <returns>返回一个新的任务，该任务表示继续回调的结果。</returns>
                 template<typename ContinueCallback, typename ContinueResultType_ = InvokeResultTraits<ContinueCallback, ResultType>::ResultType>
                 Task<ContinueResultType_> __YYAPI Then(_In_ ContinueCallback&& pfnTaskCallback)
                 {
@@ -138,9 +150,16 @@ namespace YY
                 }
 
                 /// <summary>
-                /// 在任务进入 Error/Canceled 状态时执行恢复回调。
-                /// 回调签名：std::exception_ptr -> ResultType 或 std::exception_ptr -> Task&lt;ResultType&gt;。
+                /// 在任务失败或者取消时执行 pfnTaskCallback 回调。如果任务成功完成，则继续传播成功结果，不会执行该回调。
+                /// 一般可以响应的异常有：
+                ///   * OperationCanceledException：操作被取消时抛出。
+                ///   * Exception：其他失败情况时抛出，包含错误代码和错误消息。
+                /// 
+                /// 如果不希望处理该异常，可以使用 重新抛出 的方式继续传播原异常。
                 /// </summary>
+                /// <param name="_pResumeTaskRunner">用于继续执行回调的任务运行器。</param>
+                /// <param name="pfnTaskCallback">任务完成后要执行的回调函数。</param>
+                /// <returns>返回一个新的任务，该任务表示错误回调的处理结果。</returns>
                 template<typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, std::exception_ptr>::ResultType>
                 Task<ResultType> __YYAPI ThenError(_In_ TaskRunner* _pResumeTaskRunner, _In_ ErrorCallback&& pfnTaskCallback)
                 {
@@ -161,9 +180,15 @@ namespace YY
                 }
 
                 /// <summary>
-                /// 在任务进入 Error/Canceled 状态时执行恢复回调。
-                /// 回调签名：std::exception_ptr -> ResultType 或 std::exception_ptr -> Task&lt;ResultType&gt;。
+                /// 在任务失败或者取消时执行 pfnTaskCallback 回调。如果任务成功完成，则继续传播成功结果，不会执行该回调。
+                /// 一般可以响应的异常有：
+                ///   * OperationCanceledException：操作被取消时抛出。
+                ///   * Exception：其他失败情况时抛出，包含错误代码和错误消息。
+                /// 
+                /// 如果不希望处理该异常，可以使用 重新抛出 的方式继续传播原异常。
                 /// </summary>
+                /// <param name="pfnTaskCallback">任务完成后要执行的回调函数。</param>
+                /// <returns>返回一个新的任务，该任务表示错误回调的处理结果。</returns>
                 template<typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, std::exception_ptr>::ResultType>
                 Task<ResultType> __YYAPI ThenError(_In_ ErrorCallback&& pfnTaskCallback)
                 {
@@ -172,8 +197,15 @@ namespace YY
 
                 /// <summary>
                 /// 按异常类型筛选错误处理器，不匹配时继续传播原异常。
-                /// 回调签名：const ExceptionType&amp; -> ResultType 或 const ExceptionType&amp; -> Task&lt;ResultType&gt;。
+                /// 一般可以响应的异常有：
+                ///   * OperationCanceledException：操作被取消时抛出。
+                ///   * Exception：其他失败情况时抛出，包含错误代码和错误消息。
+                /// 
+                /// 如果不希望处理该异常，可以使用 重新抛出 的方式继续传播原异常。
                 /// </summary>
+                /// <param name="_pResumeTaskRunner">用于继续执行回调的任务运行器。</param>
+                /// <param name="pfnTaskCallback">任务完成后要执行的回调函数。</param>
+                /// <returns>返回一个新的任务，该任务表示错误回调的处理结果。</returns>
                 template<typename ExceptionType, typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, const ExceptionType&>::ResultType>
                 Task<ResultType> __YYAPI ThenErrorIf(_In_ TaskRunner* _pResumeTaskRunner, _In_ ErrorCallback&& pfnTaskCallback)
                 {
@@ -198,7 +230,11 @@ namespace YY
 
                 /// <summary>
                 /// 按异常类型筛选错误处理器，不匹配时继续传播原异常。
-                /// 回调签名：const ExceptionType&amp; -> ResultType 或 const ExceptionType&amp; -> Task&lt;ResultType&gt;。
+                /// 一般可以响应的异常有：
+                ///   * OperationCanceledException：操作被取消时抛出。
+                ///   * Exception：其他失败情况时抛出，包含错误代码和错误消息。
+                /// 
+                /// 如果不希望处理该异常，可以使用 重新抛出 的方式继续传播原异常。
                 /// </summary>
                 template<typename ExceptionType, typename ErrorCallback, typename ErrorCallbackResultType_ = InvokeResultTraits<ErrorCallback, const ExceptionType&>::ResultType>
                 Task<ResultType> __YYAPI ThenErrorIf(_In_ ErrorCallback&& pfnTaskCallback)
@@ -500,15 +536,48 @@ namespace YY
 
                     if (!_pResumeTaskRunner)
                     {
-                        this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                        this->Cancel();
                         return;
                     }
 
-                    _pResumeTaskRunner->PostTask(
-                        [_pThis, _pAsyncInfo = YY::RefPtr<AsyncOperation<SourceResultType>>(_pAsyncInfo)]()
+                    class TaskInternal : public TaskEntry
+                    {
+                    public:
+                        YY::RefPtr<TaskContinueAsyncOperation> pContinueAsyncOperation;
+                        YY::RefPtr<AsyncOperation<SourceResultType>> pSourceAsyncOperation;
+
+                        ~TaskInternal()
                         {
-                            _pThis->Resume(_pAsyncInfo->GetResult());
-                        });
+                            if (pContinueAsyncOperation)
+                            {
+                                pContinueAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pContinueAsyncOperation = std::move(pContinueAsyncOperation);
+                            auto _pSourceAsyncOperation = std::move(pSourceAsyncOperation);
+                            _pContinueAsyncOperation->Resume(_pSourceAsyncOperation->GetResult());
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        this->SetErrorCode(E_OUTOFMEMORY);
+                        return;
+                    }
+
+                    _pTaskInternal->pContinueAsyncOperation = this;
+                    _pTaskInternal->pSourceAsyncOperation = _pAsyncInfo;
+
+                    auto _hr = _pResumeTaskRunner->PostTaskInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        this->SetErrorCode(_hr);
+                    }
                 }
             };
 
@@ -545,15 +614,45 @@ namespace YY
 
                     if (!_pResumeTaskRunner)
                     {
-                        this->SetErrorCode(__HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                        this->Cancel();
                         return;
                     }
 
-                    _pResumeTaskRunner->PostTask(
-                        [_pThis]()
+                    class TaskInternal : public TaskEntry
+                    {
+                    public:
+                        YY::RefPtr<TaskContinueAsyncOperation> pContinueAsyncOperation;
+
+                        ~TaskInternal()
                         {
-                            _pThis->Resume();
-                        });
+                            if (pContinueAsyncOperation)
+                            {
+                                pContinueAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pContinueAsyncOperation = std::move(pContinueAsyncOperation);
+                            _pContinueAsyncOperation->Resume();
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        this->SetErrorCode(E_OUTOFMEMORY);
+                        return;
+                    }
+
+                    _pTaskInternal->pContinueAsyncOperation = this;
+
+                    auto _hr = _pResumeTaskRunner->PostTaskInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        this->SetErrorCode(_hr);
+                    }
                 }
             };
 
@@ -594,11 +693,43 @@ namespace YY
                         return;
                     }
 
-                    _pResumeTaskRunner->PostTask(
-                        [_pThis, _eptr]()
+                    class TaskInternal : public TaskEntry
+                    {
+                    public:
+                        YY::RefPtr<TaskErrorAsyncOperation> pErrorAsyncOperation;
+                        std::exception_ptr eptr;
+
+                        ~TaskInternal()
                         {
-                            _pThis->Resume(_eptr);
-                        });
+                            if (pErrorAsyncOperation)
+                            {
+                                pErrorAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pErrorAsyncOperation = std::move(pErrorAsyncOperation);
+                            _pErrorAsyncOperation->Resume(std::move(eptr));
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        this->SetErrorCode(E_OUTOFMEMORY);
+                        return;
+                    }
+
+                    _pTaskInternal->pErrorAsyncOperation = this;
+                    _pTaskInternal->eptr = _eptr;
+
+                    auto _hr = _pResumeTaskRunner->PostTaskInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        this->SetErrorCode(_hr);
+                    }
                 }
             };
 
@@ -670,12 +801,44 @@ namespace YY
                         this->Resume(_eptr);
                         return;
                     }
-                    
-                    _pResumeTaskRunner->PostTask(
-                        [_pThis, _eptr]()
+
+                    class TaskInternal : public TaskEntry
+                    {
+                    public:
+                        YY::RefPtr<TaskErrorAsyncOperation> pErrorAsyncOperation;
+                        std::exception_ptr eptr;
+
+                        ~TaskInternal()
                         {
-                            _pThis->Resume(_eptr);
-                        });
+                            if (pErrorAsyncOperation)
+                            {
+                                pErrorAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pErrorAsyncOperation = std::move(pErrorAsyncOperation);
+                            _pErrorAsyncOperation->Resume(std::move(eptr));
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        this->SetErrorCode(E_OUTOFMEMORY);
+                        return;
+                    }
+
+                    _pTaskInternal->pErrorAsyncOperation = this;
+                    _pTaskInternal->eptr = _eptr;
+
+                    auto _hr = _pResumeTaskRunner->PostTaskInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        this->SetErrorCode(_hr);
+                    }
                 }
 
                 bool __YYAPI Resume(std::exception_ptr _eptr)
@@ -894,11 +1057,34 @@ namespace YY
                             return;
                         }
 
-                        _pResumeTaskRunner->PostTask(
-                            [hCoroutine = hCoroutine.address()]()
+                        class TaskInternal : public TaskEntry
+                        {
+                        public:
+                            std::coroutine_handle<> hCoroutine;
+
+                            ~TaskInternal()
                             {
-                                std::coroutine_handle<>::from_address(hCoroutine).resume();
-                            });
+                                if (hCoroutine)
+                                {
+                                    hCoroutine.destroy();
+                                }
+                            }
+
+                            HRESULT __YYAPI RunTask() override
+                            {
+                                auto _hCoroutine = std::move(hCoroutine);
+                                hCoroutine = nullptr;
+
+                                _hCoroutine.resume();
+                                return S_OK;
+                            }
+                        };
+
+                        auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                        _pTaskInternal->hCoroutine = hCoroutine;
+                        hCoroutine = nullptr;
+
+                        _pResumeTaskRunner->PostTaskInternal(std::move(_pTaskInternal));
                     }
                     else
                     {

@@ -57,9 +57,6 @@ namespace YY
 
                 WeakPtr<TaskRunner> pOwnerTaskRunnerWeak;
 
-                // 这个任务完成后重新回到的 TaskRunner
-                WeakPtr<TaskRunner> pResumeTaskRunnerWeak;
-
                 TaskEntry() = default;
 
                 TaskEntry(const TaskEntry&) = delete;
@@ -195,6 +192,15 @@ namespace YY
                 friend Wait;
                 friend WaitAsyncOperation;
 
+                template<typename SourceResultType_, typename ResultType_, typename CallbackType_>
+                friend class TaskContinueAsyncOperation;
+
+                template<typename SourceResultType_, typename ResultType_, typename CallbackType_, typename CallbackResultType_>
+                friend class TaskErrorAsyncOperation;
+
+                template<typename ResultType_>
+                friend class TaskAwaiter;
+
             protected:
                 uint32_t uTaskRunnerId;
 
@@ -249,23 +255,53 @@ namespace YY
                 Task<ResultType_> __YYAPI CreateTask(AsyncCallbackType_ && _pfnAsyncCallback, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
-                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
+                    using TaskAsyncOperation = TaskAsyncOperation<AsyncCallbackType_, ResultType_>;
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
                     if (!_pTaskAsyncOperation)
-                        throw Exception();
+                        throw Exception(E_OUTOFMEMORY);
 
                     if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
                     {
                         _pTaskAsyncOperation->Cancel();
-                    }
-                    else
-                    {
-                        PostTask(
-                            [_pTaskAsyncOperation]()
-                            {
-                                _pTaskAsyncOperation->Resume();
-                            });
+                        return Task<ResultType_>(std::move(_pTaskAsyncOperation));
                     }
 
+                    class TaskInternal : public TaskEntry
+                    {
+                    public:
+                        YY::RefPtr<TaskAsyncOperation> pAsyncOperation;
+
+                        ~TaskInternal()
+                        {
+                            if (pAsyncOperation)
+                            {
+                                pAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pAsyncOperation = std::move(pAsyncOperation);
+                            _pAsyncOperation->Resume();
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        _pTaskAsyncOperation->SetErrorCode(E_OUTOFMEMORY);
+                        return Task<ResultType_>(std::move(_pTaskAsyncOperation));
+                    }
+
+                    _pTaskInternal->pAsyncOperation = _pTaskAsyncOperation;
+
+                    auto _hr = PostTaskInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        _pTaskAsyncOperation->SetErrorCode(_hr);
+                    }
+                    
                     return Task<ResultType_>(std::move(_pTaskAsyncOperation));
                 }
 
@@ -279,23 +315,55 @@ namespace YY
                 template<typename AsyncCallbackType_, typename ResultType_ = decltype(std::declval<AsyncCallbackType_>()())>
                 Task<ResultType_> __YYAPI CreateDelayTask(_In_ TimeSpan _uAfter, AsyncCallbackType_&& _pfnAsyncCallback, _In_opt_ YY::RefPtr<CancellationToken> _pCancellationToken = nullptr)
                 {
+                    auto _uExpire = TickCount::GetNow() + _uAfter;
+
                     using AsyncCallbackType = typename std::decay<AsyncCallbackType_>::type;
-                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation<AsyncCallbackType_, ResultType_>>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
+                    using TaskAsyncOperation = TaskAsyncOperation<AsyncCallbackType_, ResultType_>;
+                    auto _pTaskAsyncOperation = YY::RefPtr<TaskAsyncOperation>::Create(std::forward<AsyncCallbackType_>(_pfnAsyncCallback), _pCancellationToken);
                     if (!_pTaskAsyncOperation)
-                        throw Exception();
+                        throw Exception(E_OUTOFMEMORY);
 
                     if (_pCancellationToken && _pCancellationToken->IsCancellationRequested())
                     {
                         _pTaskAsyncOperation->Cancel();
+                        return Task<ResultType_>(std::move(_pTaskAsyncOperation));
                     }
-                    else
+
+                    class TaskInternal : public Timer
                     {
-                        PostDelayTask(
-                            _uAfter,
-                            [_pTaskAsyncOperation]()
+                    public:
+                        YY::RefPtr<TaskAsyncOperation> pAsyncOperation;
+
+                        ~TaskInternal()
+                        {
+                            if (pAsyncOperation)
                             {
-                                _pTaskAsyncOperation->Resume();
-                            });
+                                pAsyncOperation->Cancel();
+                            }
+                        }
+
+                        HRESULT __YYAPI RunTask() override
+                        {
+                            auto _pAsyncOperation = std::move(pAsyncOperation);
+                            _pAsyncOperation->Resume();
+                            return S_OK;
+                        }
+                    };
+
+                    auto _pTaskInternal = YY::RefPtr<TaskInternal>::Create();
+                    if (!_pTaskInternal)
+                    {
+                        _pTaskAsyncOperation->SetErrorCode(E_OUTOFMEMORY);
+                        return Task<ResultType_>(std::move(_pTaskAsyncOperation));
+                    }
+
+                    _pTaskInternal->uExpire = _uExpire;
+                    _pTaskInternal->pAsyncOperation = _pTaskAsyncOperation;
+
+                    auto _hr = SetTimerInternal(std::move(_pTaskInternal));
+                    if (FAILED(_hr))
+                    {
+                        _pTaskAsyncOperation->SetErrorCode(_hr);
                     }
 
                     return Task<ResultType_>(std::move(_pTaskAsyncOperation));
