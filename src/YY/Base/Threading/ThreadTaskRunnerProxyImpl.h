@@ -51,7 +51,7 @@ namespace YY
                 };
 
                 uint32_t uThreadId = Threading::GetCurrentThreadId();
-                uint32_t uTaskRunnerReentryCount = 0;
+                uint32_t uTaskReentryCount = 0;
                 uint32_t uPendingTaskCount = 0;
                 uint32_t uProcessedTaskCount = 0;
                 // 故意打开一次句柄，保证ThreadTaskRunner释放前， uThreadId 始终有效。
@@ -164,7 +164,7 @@ namespace YY
                     // 因为刚才 uWakeupCountAndPushLock 已经将第一个标记位设置位 1
                     // 所以我们再 uWakeupCountAndPushLock += 1即可。
                     // uWakeupCount + 1 <==> uWakeupCountAndPushLock + 2 <==> (uWakeupCountAndPushLock | 1) + 1
-                    if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * (2u + uTaskRunnerReentryCount))
+                    if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * (2u + uTaskReentryCount))
                     {
                         // 为 1 是说明当前正在等待输入消息，并且未主动唤醒
                         // 如果唤醒失败处理，暂时不做处理，可能是当前系统资源不足，既然已经加入了队列我们先这样吧。
@@ -242,16 +242,23 @@ namespace YY
 
                 void __YYAPI ExecuteTaskRunner()
                 {
-                    if (uPendingTaskCount == uTaskRunnerReentryCount)
+                    if (uPendingTaskCount == uTaskReentryCount)
                     {
-                        uPendingTaskCount += (uWakeupCountAndPushLock / WakeupOnceRaw) - uProcessedTaskCount - uTaskRunnerReentryCount;
-                        if (uPendingTaskCount == uTaskRunnerReentryCount)
+                        if (uProcessedTaskCount)
+                        {
+                            uPendingTaskCount = Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * uProcessedTaskCount) / WakeupOnceRaw;
+                            uProcessedTaskCount = 0;
+                        }
+                        else
+                        {
+                            uPendingTaskCount = uWakeupCountAndPushLock / WakeupOnceRaw;
+                        }
+
+                        if (uPendingTaskCount == uTaskReentryCount)
                         {
                             return;
                         }
                     }
-
-                    ++uTaskRunnerReentryCount;
 
                     // 避免队列发生阻塞，所以我们立即
                     Wakeup();
@@ -273,7 +280,9 @@ namespace YY
 
                         if (_pTask)
                         {
+                            ++uTaskReentryCount;
                             _pTask->operator()();
+                            --uTaskReentryCount;
                             ++uProcessedTaskCount;
                             --uPendingTaskCount;
                             _pTask->Release();
@@ -282,15 +291,13 @@ namespace YY
                         {
                             break;
                         }
-                    } while (uPendingTaskCount != (uTaskRunnerReentryCount - 1));
+                    } while (uPendingTaskCount != uTaskReentryCount);
 
                     if (uProcessedTaskCount)
                     {
-                        Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * uProcessedTaskCount);
+                        uPendingTaskCount = Sync::Subtract(&uWakeupCountAndPushLock, WakeupOnceRaw * uProcessedTaskCount) / WakeupOnceRaw;
                         uProcessedTaskCount = 0;
                     }
-
-                    --uTaskRunnerReentryCount;
                 }
 
                 void __YYAPI ExecuteTimerTasks()

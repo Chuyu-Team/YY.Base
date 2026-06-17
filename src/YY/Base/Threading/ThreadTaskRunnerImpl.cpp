@@ -108,7 +108,7 @@ namespace YY
                         }
 
                         // uPushLock 占用1bit，所以 uWakeupCount += 1 等价于 uWakeupCountAndPushLock += 2
-                        if (uPendingTaskCount == (uTaskRunnerReentryCount - 1))
+                        if (uPendingTaskCount == uTaskReentryCount)
                         {
                             if (uProcessedTaskCount)
                             {
@@ -119,7 +119,7 @@ namespace YY
                                 {
                                     WakeByAddressAll((PVOID)&uWakeupCountAndPushLock);
                                 }
-                                else if (uPendingTaskCount >= uTaskRunnerReentryCount)
+                                else if (uPendingTaskCount > uTaskReentryCount)
                                 {
                                     // 队列已经插入新的Task，重新处理任务队列。
                                     break;
@@ -152,7 +152,9 @@ namespace YY
 
                             if (_pTask)
                             {
+                                ++uTaskReentryCount;
                                 _pTask->operator()();
+                                --uTaskReentryCount;
                                 ++uProcessedTaskCount;
                                 --uPendingTaskCount;
                                 _pTask->Release();
@@ -173,7 +175,7 @@ namespace YY
                     for (;;)
                     {
                         // uPushLock 占用1bit，所以 uWakeupCount += 1 等价于 uWakeupCountAndPushLock += 2
-                        if (uPendingTaskCount == (uTaskRunnerReentryCount - 1))
+                        if (uPendingTaskCount == uTaskReentryCount)
                         {
                             auto _oCurrent = TickCount::GetNow();
                             ProcessingTimerTasks(_oCurrent);
@@ -186,7 +188,7 @@ namespace YY
                                 {
                                     WakeByAddressAll((PVOID)&uWakeupCountAndPushLock);
                                 }
-                                else if (uPendingTaskCount >= uTaskRunnerReentryCount)
+                                else if (uPendingTaskCount > uTaskReentryCount)
                                 {
                                     // 队列已经插入新的Task，重新处理任务队列。
                                     continue;
@@ -246,7 +248,9 @@ namespace YY
 
                             if (_pTask)
                             {
+                                ++uTaskReentryCount;
                                 _pTask->operator()();
+                                --uTaskReentryCount;
                                 ++uProcessedTaskCount;
                                 --uPendingTaskCount;
                                 _pTask->Release();
@@ -291,7 +295,7 @@ namespace YY
                 // 因为刚才 uWakeupCountAndPushLock 已经将第一个标记位设置位 1
                 // 所以我们再 uWakeupCountAndPushLock += 1即可。
                 // uWakeupCount + 1 <==> uWakeupCountAndPushLock + 2 <==> (uWakeupCountAndPushLock | 1) + 1
-                if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * (2u + uTaskRunnerReentryCount))
+                if (Sync::Add(&uWakeupCountAndPushLock, uint32_t(UnlockQueuePushLockBitAndWakeupOnceRaw)) < WakeupOnceRaw * (2u + uTaskReentryCount))
                 {
                     // 为 1 是说明当前正在等待输入消息，并且未主动唤醒
                     // 如果唤醒失败处理，暂时不做处理，可能是当前系统资源不足，既然已经加入了队列我们先这样吧。
@@ -407,7 +411,6 @@ namespace YY
 
             uintptr_t __YYAPI ThreadTaskRunnerImpl::RunTaskRunnerLoop()
             {
-                ++uTaskRunnerReentryCount;
                 uintptr_t _uRet;
 
                 if (bBackgroundLoop)
@@ -419,7 +422,6 @@ namespace YY
                     _uRet = RunUIMessageLoop();
                 }
 
-                --uTaskRunnerReentryCount;
                 if (IsShared() == false
                     || bInterrupt
                     || (bStopWakeup && uWakeupCount == 0))
