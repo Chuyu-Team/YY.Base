@@ -107,7 +107,7 @@
         <Intrinsic Name="GetSize" Expression="Header.uSize" />
         <Intrinsic Name="GetCapacity" Expression="IsSmall() ? sizeof(Header.Small.InsideBuffer) / sizeof(Type) : Header.Large.uCapacity" />
         <Intrinsic Name="GetLockCount" Expression="IsSmall() ? Header.Small.uLockCount : Header.Large.uLockCount" />
-        <Intrinsic Name="GetData" Expression="IsSmall() ? (Type*)(Header.Small.InsideBuffer) : Header.Large.pData" />
+        <Intrinsic Name="GetData" Expression="IsSmall() ? _ReadPoint(Header.Small.InsideBuffer) : Header.Large.pData" />
         <DisplayString>{{ Size={GetSize()} }}</DisplayString>
         <Expand>
             <Synthetic Name="[Policy]">
