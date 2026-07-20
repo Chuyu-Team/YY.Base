@@ -24,6 +24,7 @@
     <NuGetExConnentFiles Include="$(MSBuildThisFileDirectory)src\YY.Base.natvis" >
       <NuGetPackageId>$(MSBuildThisFileName)</NuGetPackageId>
       <BuildAction>Natvis</BuildAction>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
     </NuGetExConnentFiles>
   </ItemGroup>
 </Project>
