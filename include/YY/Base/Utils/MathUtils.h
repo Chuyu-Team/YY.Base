@@ -33,7 +33,9 @@ namespace YY
             }
 #endif
 
-#if defined(_AMD64_)
+#if defined(_AMD64_) && defined(_MSC_VER) && _MSC_VER < 1920
+            // 从 Visual Studio 2019 RTM 开始可用。
+            // https://learn.microsoft.com/zh-cn/cpp/intrinsics/udiv128?view=msvc-170
             using ::_udiv128;
 #else
             inline constexpr uint64_t __YYAPI _udiv128(uint64_t _HighDividend, uint64_t _LowDividend, uint64_t _Divisor, uint64_t* _Remainder) noexcept
