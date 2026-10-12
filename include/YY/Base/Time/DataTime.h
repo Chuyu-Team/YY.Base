@@ -78,6 +78,21 @@ namespace YY
                     return _oTime;
                 }
 
+                /// <summary>
+                /// 将 JavaScript 时间戳转换为 UtcDataTime。
+                /// </summary>
+                /// <param name="_iJavaScriptTimestamp">JavaScript 时间戳（自 1970 年 1 月 1 日（UTC）以来的毫秒数）</param>
+                /// <returns>对应的 UtcDataTime。如果时间戳无效，则返回无效UtcDataTime。</returns>
+                static constexpr UtcDataTime __YYAPI FromJavaScriptTimestamp(int64_t _iJavaScriptTimestamp)
+                {
+                    UtcDataTime _oTime;
+                    if (_iJavaScriptTimestamp != -1)
+                    {
+                        _oTime.uTicks = uint64_t(_iJavaScriptTimestamp) * 10'000ULL + 116444736000000000ULL;
+                    }
+                    return _oTime;
+                }
+
                 SYSTEMTIME __YYAPI ToSystemTime() const;
 
                 LocalDataTime __YYAPI ToLocalDataTime(_In_opt_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone()) const;
@@ -91,6 +106,21 @@ namespace YY
                         return -1;
 
                     return (uTicks - 116444736000000000ULL) / 10000000ULL;
+                }
+
+                /// <summary>
+                /// 转换为 JavaScript 时间戳表示形式。JavaScript 时间戳是自 1970 年 1 月 1 日（UTC）以来的毫秒数。
+                /// </summary>
+                /// <returns>当前 UtcDataTime 的 JavaScript 时间戳表示形式。如果当前时间无效，则返回 -1。</returns>
+                constexpr int64_t __fastcall ToJavaScriptTimestamp() const
+                {
+                    if (uTicks >= 0x8000000000000000ULL)
+                        return int64_t(-1);
+
+                    if (uTicks < 116444736000000000ULL)
+                        return int64_t(-1);
+
+                    return (uTicks - 116444736000000000ULL) / 10'000ULL;
                 }
 
                 constexpr UtcDataTime& operator=(const UtcDataTime&) noexcept = default;
@@ -235,6 +265,24 @@ namespace YY
                     return _oTime;
                 }
 
+                /// <summary>
+                /// 将 JavaScript 时间戳转换为 LocalDataTime。
+                /// </summary>
+                /// <param name="_iJavaScriptTimestamp">JavaScript 时间戳（自 1970 年 1 月 1 日（UTC）以来的毫秒数）</param>
+                /// <param name="_pTimeZone">时区</param>
+                /// <returns>对应的 LocalDataTime。如果时间戳无效，则返回无效 LocalDataTime。</returns>
+                static LocalDataTime __YYAPI FromJavaScriptTimestamp(int64_t _iJavaScriptTimestamp, _In_ YY::RefPtr<const TimeZone> _pTimeZone = TimeZone::GetCurrentTimeZone())
+                {
+                    LocalDataTime _oTime;
+                    if (_iJavaScriptTimestamp != -1)
+                    {
+                        _oTime.uTicks = uint64_t(_iJavaScriptTimestamp) * 10'000LL + 116444736000000000LL;
+                    }
+
+                    _oTime.pTimeZone = std::move(_pTimeZone);
+                    return _oTime;
+                }
+
                 SYSTEMTIME __YYAPI ToSystemTime() const;
 
                 UtcDataTime __YYAPI ToUtcDataTime() const;
@@ -248,6 +296,21 @@ namespace YY
                         return -1;
 
                     return (uTicks - 116444736000000000ULL) / 10000000ULL;
+                }
+
+                /// <summary>
+                /// 转换为 JavaScript 时间戳表示形式。JavaScript 时间戳是自 1970 年 1 月 1 日（UTC）以来的毫秒数。
+                /// </summary>
+                /// <returns>对应的 JavaScript 时间戳。如果时间无效，则返回 -1。</returns>
+                constexpr int64_t __YYAPI ToJavaScriptTimestamp() const
+                {
+                    if (uTicks >= 0x8000000000000000ULL)
+                        return -1;
+
+                    if (uTicks < 116444736000000000ULL)
+                        return -1;
+
+                    return (uTicks - 116444736000000000ULL) / 10'000LL;
                 }
 
                 constexpr LocalDataTime& operator=(const LocalDataTime&) noexcept = default;
