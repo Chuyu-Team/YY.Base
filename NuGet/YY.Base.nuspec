@@ -12,6 +12,7 @@
     <projectUrl>https://github.com/Chuyu-Team/YY.Base/</projectUrl>
     <summary>包含线程池、协程支持、智能指针、String等轻量级基础函数库。</summary>
     <description>包含线程池、协程支持、智能指针、String等轻量级基础函数库。</description>
+    <readme>docs\readme.md</readme>
     <releaseNotes>$releaseNotes$</releaseNotes>
     <copyright>Copyright Chuyu</copyright>
     <tags>Chuyu YY-Thunks native nativepackage</tags>
@@ -29,5 +30,6 @@
     <file src=".\YY.Base.*" target="build\native"/>
     <file src=".\content.txt" target="contentFiles\any\any\YY.Base.txt"/>
     <file src=".\content.txt" target="Content\NuGet\YY.Base.txt"/>
+    <file src="..\readme.md" target="docs\readme.md"/>
   </files>
 </package>

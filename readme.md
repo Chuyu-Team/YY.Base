@@ -1,16 +1,36 @@
 ﻿# YY.Base
-本仓库主要提供了YY.Base的基础功能，主要包括：
+本仓库主要提供了YY.Base的基础功能，主要包括（自行include头文件使用）：
 * 线程池能力
-  - YY/Base/Threading/TaskRunner.h
+  - YY/Base/Threading/TaskRunner.h：线程池能力，处理投递的任务，也支持C++ 20的协程
 * 字符串
   - YY/Base/Strings/String.h
-  - YY/Base/Strings/StringView
+  - YY/Base/Strings/StringView.h
+  - YY/Base/Strings/StringTransform.h：字符串编码转换
 * 容器
   - YY/Base/Containers/Array.h
   - YY/Base/Containers/Span.h
   - YY/Base/Containers/BitMap.h
   - YY/Base/Containers/Optional.h
   - YY/Base/Containers/SingleLinkedList.h
+* 时间类库
+  - YY/Base/Time/DataTime.h
+  - YY/Base/Time/TimeSpan.h
+  - YY/Base/Time/TickCount.h
+  - YY/Base/Time/TimeZone.h
+* 智能指针
+  - YY/Base/Memory/UniquePtr.h
+  - YY/Base/Memory/WeakPtr.h
+  - YY/Base/Memory/RefPtr.h
+  - YY/Base/Memory/ObserverPtr.h
+* 工具类
+  - YY/Base/Utils/Handle.h：Windows智能句柄封装
+  - YY/Base/Security/Token.h：Windows Token句柄封装
+  - YY/Base/Utils/AutoCleanup.h：自动清理资源
+  - YY/Base/Utils/ComObjectImpl.h：COM对象实现帮助器
+  - YY/Base/Utils/FileInfo.h：获取PE文件版本号
+  - YY/Base/Utils/SystemInfo.h：获取系统版本号
+* 进程类
+  - YY/Base/Process/Process.h：暂时只提供降权启动进程能力
 > 更多请参考：include文件夹中的内容。
 
 ## 示例
